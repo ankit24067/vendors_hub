@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  ::selection { background: #efd9e6; }
+  input, textarea, select, button { font-family: inherit; }
+  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes panelIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #d9d9df; border-radius: 8px; border: 3px solid #f7f7f8; }
+</style>
+</helmet>
+<div style="font-family: 'Instrument Sans', system-ui, sans-serif; color: #1c1c22; min-height: 100vh; background: #f7f7f8; -webkit-font-smoothing: antialiased;">
+
+  <sc-if value="{{ showLogin }}" hint-placeholder-val="{{ true }}">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: radial-gradient(120% 120% at 50% 0%, #ffffff 0%, #f4f1f3 60%, #efe9ed 100%);">
+      <div style="width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; gap: 26px;">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 14px;">
+          <div style="width: 46px; height: 46px; border-radius: 12px; background: #6c2a57; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 24px; box-shadow: 0 6px 18px rgba(108,42,87,0.28);">M</div>
+          <div style="text-align: center;">
+            <div style="font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: #9a8f95; font-weight: 600;">Mirraw</div>
+            <div style="font-size: 22px; font-weight: 600; margin-top: 2px;">Vendor Hub</div>
+          </div>
+        </div>
+        <div style="width: 100%; background: #fff; border: 1px solid #ebebef; border-radius: 16px; padding: 32px 30px; box-shadow: 0 12px 40px rgba(28,28,34,0.06); display: flex; flex-direction: column; align-items: center; gap: 22px;">
+          <div style="text-align: center; display: flex; flex-direction: column; gap: 6px;">
+            <div style="font-size: 19px; font-weight: 600;">{{ loginTitle }}</div>
+            <div style="font-size: 14px; color: #6b6b76; line-height: 1.5;">{{ loginTagline }}</div>
+          </div>
+          <button onClick="{{ doLogin }}" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px 16px; border-radius: 10px; border: 1px solid #dcdce2; background: #fff; font-size: 15px; font-weight: 500; color: #1c1c22; cursor: pointer;" style-hover="background:#faf9fa;border-color:#c9c9d1;">
+            <span style="width: 22px; height: 22px; border-radius: 50%; border: 2px solid #6c2a57; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: #6c2a57;">G</span>
+            Sign in with Google
+          </button>
+          <div style="font-size: 12px; color: #a2a2ac; text-align: center;">Restricted access · authorized accounts only</div>
+        </div>
+        <button onClick="{{ togglePortal }}" style="background: none; border: none; color: #6c2a57; font-size: 13px; font-weight: 600; cursor: pointer;">{{ portalSwitchLabel }}</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showApp }}">
+    <div style="display: flex; min-height: 100vh;">
+      <aside style="width: 244px; flex-shrink: 0; background: #fbfbfc; border-right: 1px solid #ebebef; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;">
+        <div style="padding: 20px 18px 16px; display: flex; align-items: center; gap: 11px; border-bottom: 1px solid #f0f0f3;">
+          <div style="width: 32px; height: 32px; border-radius: 9px; background: #6c2a57; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px; flex-shrink: 0;">M</div>
+          <div style="min-width: 0;">
+            <div style="font-size: 14px; font-weight: 600; line-height: 1.1;">Mirraw</div>
+            <div style="font-size: 11px; color: #9a8f95; font-weight: 500;">{{ portalLabel }}</div>
+          </div>
+        </div>
+        <nav style="flex: 1; padding: 14px 12px; display: flex; flex-direction: column; gap: 3px;">
+          <sc-for list="{{ navItems }}" as="it" hint-placeholder-count="4">
+            <div onClick="{{ it.onClick }}" style="{{ it.itemStyle }}" style-hover="background:#f3f0f2;">
+              <span style="{{ it.dotStyle }}"></span>
+              <span>{{ it.label }}</span>
+            </div>
+          </sc-for>
+        </nav>
+        <div style="padding: 12px; border-top: 1px solid #f0f0f3; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 6px 8px;">
+            <div style="width: 30px; height: 30px; border-radius: 50%; background: #efe4eb; color: #6c2a57; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; flex-shrink: 0;">{{ userInitials }}</div>
+            <div style="min-width: 0; flex: 1;">
+              <div style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ userName }}</div>
+              <div style="font-size: 11px; color: #9a9aa2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ userEmail }}</div>
+            </div>
+          </div>
+          <button onClick="{{ doLogout }}" style="width: 100%; text-align: left; padding: 8px 10px; border-radius: 8px; border: none; background: none; color: #6b6b76; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background:#f3f0f2;color:#1c1c22;">Sign out</button>
+        </div>
+      </aside>
+
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+        <header style="height: 60px; flex-shrink: 0; background: rgba(251,251,252,0.86); backdrop-filter: blur(8px); border-bottom: 1px solid #ebebef; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; position: sticky; top: 0; z-index: 20;">
+          <div style="font-size: 17px; font-weight: 600;">{{ pageTitle }}</div>
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #6c2a57; background: #f3e9ef; padding: 5px 11px; border-radius: 999px;">{{ portalLabel }}</span>
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #efe4eb; color: #6c2a57; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px;">{{ userInitials }}</div>
+          </div>
+        </header>
+
+        <div style="flex: 1; padding: 30px 32px 60px; overflow-y: auto;">
+          <sc-if value="{{ isDashboard }}">
+            <div style="max-width: 1120px;">
+              <sc-if value="{{ isVendor }}" hint-placeholder-val="{{ true }}">
+                <div>
+                  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <sc-for list="{{ vCards }}" as="c" hint-placeholder-count="4">
+                      <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; padding: 18px 18px 16px; position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: {{ c.tone }};"></div>
+                        <div style="font-size: 13px; color: #6b6b76; font-weight: 500;">{{ c.label }}</div>
+                        <div style="font-size: 30px; font-weight: 700; margin: 8px 0 3px; letter-spacing: -0.02em;">{{ c.value }}</div>
+                        <div style="font-size: 12px; color: #a2a2ac;">{{ c.sub }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; overflow-x: auto;">
+                    <div style="padding: 16px 20px; border-bottom: 1px solid #f0f0f3; font-size: 15px; font-weight: 600;">Recent Activity</div>
+                    <sc-if value="{{ hasActivity }}" hint-placeholder-val="{{ true }}">
+                      <div>
+                        <sc-for list="{{ vActivity }}" as="a" hint-placeholder-count="5">
+                          <div style="display: flex; align-items: center; gap: 13px; padding: 13px 20px; border-bottom: 1px solid #f4f4f6;">
+                            <span style="width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: {{ a.dot }};"></span>
+                            <div style="flex: 1; min-width: 0;">
+                              <span style="font-size: 14px;">{{ a.text }} </span>
+                              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #6c2a57; background: #f6eef2; padding: 1px 7px; border-radius: 5px;">{{ a.target }}</span>
+                            </div>
+                            <div style="font-size: 12px; color: #a2a2ac; white-space: nowrap;">{{ a.ts }}</div>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isAdmin }}">
+                <div>
+                  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <sc-for list="{{ aCards }}" as="c" hint-placeholder-count="4">
+                      <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; padding: 18px 18px 16px; position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: {{ c.tone }};"></div>
+                        <div style="font-size: 13px; color: #6b6b76; font-weight: 500;">{{ c.label }}</div>
+                        <div style="font-size: 30px; font-weight: 700; margin: 8px 0 3px; letter-spacing: -0.02em;">{{ c.value }}</div>
+                        <div style="font-size: 12px; color: #a2a2ac;">{{ c.sub }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; overflow-x: auto;">
+                    <div style="padding: 16px 20px; border-bottom: 1px solid #f0f0f3; display: flex; align-items: center; justify-content: space-between;">
+                      <span style="font-size: 15px; font-weight: 600;">Needs Attention</span>
+                      <span style="font-size: 12px; color: #a2a2ac;">Quick actions</span>
+                    </div>
+                    <sc-if value="{{ hasAttn }}" hint-placeholder-val="{{ true }}">
+                      <div>
+                        <sc-for list="{{ attn }}" as="a" hint-placeholder-count="5">
+                          <div onClick="{{ a.onClick }}" style="display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid #f4f4f6; cursor: pointer;" style-hover="background:#faf9fa;">
+                            <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; padding: 4px 9px; border-radius: 6px; flex-shrink: 0; background: {{ a.tagBg }}; color: {{ a.tagC }};">{{ a.tag }}</span>
+                            <div style="flex: 1; min-width: 0;">
+                              <div style="font-size: 14px; font-weight: 500;">{{ a.title }}</div>
+                              <div style="font-size: 12.5px; color: #9a9aa2;">{{ a.meta }}</div>
+                            </div>
+                            <span style="color: #c4c4ce; font-size: 18px;">›</span>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+          <sc-if value="{{ isReorders }}">
+            <div style="max-width: 1120px;">
+              <!-- VENDOR reorders : incoming demands from Mirraw -->
+              <sc-if value="{{ isVendor }}" hint-placeholder-val="{{ true }}">
+                <div>
+                  <div style="display: inline-flex; padding: 4px; background: #f0eef0; border-radius: 11px; margin-bottom: 20px;">
+                    <button onClick="{{ subTabNew }}" style="{{ subTabNewStyle }}">New Requests <span style="{{ subTabNewCountStyle }}">{{ newCount }}</span></button>
+                    <button onClick="{{ subTabUpd }}" style="{{ subTabUpdStyle }}">Updates <span style="{{ subTabUpdCountStyle }}">{{ updCount }}</span></button>
+                  </div>
+
+                  <!-- NEW REQUESTS -->
+                  <sc-if value="{{ isSubNew }}" hint-placeholder-val="{{ true }}">
+                    <div>
+                      <div style="font-size: 13.5px; color: #6b6b76; margin-bottom: 14px;">Reorder demands sent by Mirraw. Accept and confirm how many you can fulfill, or reject with a reason.</div>
+                      <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; overflow-x: auto;">
+                        <div style="display: grid; grid-template-columns: 80px 130px 120px 1fr 120px 80px 210px; gap: 14px; min-width: 940px; padding: 12px 20px; background: #fafafb; border-bottom: 1px solid #ebebef; font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.03em;">
+                          <div></div><div>SKU</div><div>PID</div><div>Product Type</div><div>Cost Price</div><div>Qty</div><div style="text-align: right;">Response</div>
+                        </div>
+                        <sc-if value="{{ newEmpty }}">
+                          <div style="padding: 60px 20px; text-align: center;">
+                            <div style="font-size: 15px; font-weight: 600; color: #52525b;">All caught up</div>
+                            <div style="font-size: 13px; color: #a2a2ac; margin-top: 5px;">No new reorder demands right now. New demands from Mirraw appear here.</div>
+                          </div>
+                        </sc-if>
+                        <sc-for list="{{ newDemands }}" as="d" hint-placeholder-count="4">
+                          <div style="display: grid; grid-template-columns: 80px 130px 120px 1fr 120px 80px 210px; gap: 14px; min-width: 940px; padding: 13px 20px; border-bottom: 1px solid #f4f4f6; align-items: center; font-size: 14px;">
+                            <div style="{{ d.imgStyle }}"></div>
+                            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #6c2a57;">{{ d.sku }}</div>
+                            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8a8a94;">{{ d.pid }}</div>
+                            <div style="font-weight: 500;">{{ d.type }}</div>
+                            <div>{{ d.costLabel }}</div>
+                            <div style="font-weight: 600;">{{ d.qtyLabel }}</div>
+                            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                              <button onClick="{{ d.onAccept }}" style="padding: 7px 15px; border-radius: 8px; border: none; background: #dcf3e4; color: #1b6b3a; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background:#c9ecd5;">Accept</button>
+                              <button onClick="{{ d.onReject }}" style="padding: 7px 15px; border-radius: 8px; border: 1px solid #f0d3d3; background: #fff; color: #a01f1f; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background:#fbe2e2;">Reject</button>
+                            </div>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <!-- UPDATES -->
+                  <sc-if value="{{ isSubUpd }}">
+                    <div>
+                      <div style="font-size: 13.5px; color: #6b6b76; margin-bottom: 14px;">Your responses. Review or edit, then submit to lock the row and send it to Mirraw.</div>
+                      <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; overflow-x: auto;">
+                        <div style="display: grid; grid-template-columns: 80px 130px 1fr 130px 110px 1.3fr 190px; gap: 14px; min-width: 1000px; padding: 12px 20px; background: #fafafb; border-bottom: 1px solid #ebebef; font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.03em;">
+                          <div></div><div>SKU</div><div>Product Type</div><div>Response</div><div>Fulfilled</div><div>Remark / Reason</div><div style="text-align: right;">Action</div>
+                        </div>
+                        <sc-if value="{{ updEmpty }}">
+                          <div style="padding: 60px 20px; text-align: center;">
+                            <div style="font-size: 15px; font-weight: 600; color: #52525b;">Nothing here yet</div>
+                            <div style="font-size: 13px; color: #a2a2ac; margin-top: 5px;">Accepted and rejected requests move here for review before you submit.</div>
+                          </div>
+                        </sc-if>
+                        <sc-for list="{{ updDemands }}" as="d" hint-placeholder-count="3">
+                          <div style="display: grid; grid-template-columns: 80px 130px 1fr 130px 110px 1.3fr 190px; gap: 14px; min-width: 1000px; padding: 13px 20px; border-bottom: 1px solid #f4f4f6; align-items: center; font-size: 14px;">
+                            <div style="{{ d.imgStyle }}"></div>
+                            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #6c2a57;">{{ d.sku }}</div>
+                            <div style="font-weight: 500;">{{ d.type }}</div>
+                            <div><span style="{{ d.badgeStyle }}"><span style="{{ d.badgeDot }}"></span>{{ d.badgeLabel }}</span></div>
+                            <div style="color: #52525b;">{{ d.fulfillLabel }}</div>
+                            <div style="color: #6b6b76; font-size: 13px;">{{ d.detailLabel }}</div>
+                            <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center;">
+                              <sc-if value="{{ d.isLocked }}" hint-placeholder-val="{{ false }}">
+                                <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #6c2a57;"><span style="width:15px;height:15px;border-radius:50%;background:#6c2a57;color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;">✓</span> Submitted</span>
+                              </sc-if>
+                              <sc-if value="{{ d.editable }}" hint-placeholder-val="{{ true }}">
+                                <div style="display: flex; gap: 8px;">
+                                  <button onClick="{{ d.onEdit }}" style="padding: 6px 13px; border-radius: 8px; border: 1px solid #e4e4ea; background: #fff; color: #52525b; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background:#f6f6f8;">Edit</button>
+                                  <button onClick="{{ d.onSubmit }}" style="padding: 6px 14px; border-radius: 8px; border: none; background: #6c2a57; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background:#571f44;">Submit</button>
+                                </div>
+                              </sc-if>
+                            </div>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <!-- ADMIN reorders -->
+              <sc-if value="{{ isAdmin }}">
+                <div>
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; gap: 16px; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                      <sc-for list="{{ aReFilters }}" as="f" hint-placeholder-count="4">
+                        <button onClick="{{ f.onClick }}" style="{{ f.style }}">{{ f.label }}</button>
+                      </sc-for>
+                    </div>
+                    <select onChange="{{ setAReVendor }}" value="{{ aReorderVendor }}" style="padding: 8px 12px; border-radius: 9px; border: 1px solid #e4e4ea; background: #fff; font-size: 13px; color: #52525b; cursor: pointer;">
+                      <option value="all">All vendors</option>
+                      <sc-for list="{{ vendorOptions }}" as="v" hint-placeholder-count="3">
+                        <option value="{{ v.id }}">{{ v.name }}</option>
+                      </sc-for>
+                    </select>
+                  </div>
+                  <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; overflow-x: auto;">
+                    <div style="display: grid; grid-template-columns: 1.3fr 130px 1.4fr 80px 140px 120px 40px; gap: 12px; min-width: 980px; padding: 12px 20px; background: #fafafb; border-bottom: 1px solid #ebebef; font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.03em;">
+                      <div>Vendor</div><div>SKU</div><div>Product</div><div>Qty</div><div>Status</div><div>Requested</div><div></div>
+                    </div>
+                    <sc-if value="{{ aReordersEmpty }}">
+                      <div style="padding: 60px 20px; text-align: center;">
+                        <div style="font-size: 15px; font-weight: 600; color: #52525b;">No matching requests</div>
+                        <div style="font-size: 13px; color: #a2a2ac; margin-top: 5px;">Adjust your filters to see more.</div>
+                      </div>
+                    </sc-if>
+                    <sc-for list="{{ aReorders }}" as="r" hint-placeholder-count="5">
+                      <div onClick="{{ r.onClick }}" style="display: grid; grid-template-columns: 1.3fr 130px 1.4fr 80px 140px 120px 40px; gap: 12px; min-width: 980px; padding: 14px 20px; border-bottom: 1px solid #f4f4f6; align-items: center; font-size: 14px; cursor: pointer;" style-hover="background:#faf9fa;">
+                        <div style="font-weight: 500;">{{ r.vendorName }}</div>
+                        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #6c2a57;">{{ r.sku }}</div>
+                        <div style="color: #52525b;">{{ r.product }}</div>
+                        <div>{{ r.qtyLabel }}</div>
+                        <div><span style="{{ r.badgeStyle }}"><span style="{{ r.badgeDot }}"></span>{{ r.badgeLabel }}</span></div>
+                        <div style="color: #6b6b76;">{{ r.dateLabel }}</div>
+                        <div style="text-align: right; color: #c4c4ce; font-size: 18px;">›</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+          <sc-if value="{{ isPayments }}">
+            <div style="max-width: 1120px;">
+              <!-- VENDOR payments : attach invoice PDF to POs from the sheet -->
+              <sc-if value="{{ isVendor }}" hint-placeholder-val="{{ true }}">
+                <div>
+                  <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px;">
+                    <div style="font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.04em;">Awaiting Invoice</div>
+                    <div style="font-size: 12.5px; color: #a2a2ac;">PO details are synced from Mirraw — just attach the invoice PDF.</div>
+                  </div>
+                  <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; overflow-x: auto; margin-bottom: 26px;">
+                    <div style="display: grid; grid-template-columns: 160px 100px 140px 1fr 130px; gap: 14px; min-width: 820px; padding: 12px 20px; background: #fafafb; border-bottom: 1px solid #ebebef; font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.03em;">
+                      <div>PO Number</div><div>Quantity</div><div>Amount</div><div>Invoice PDF</div><div style="text-align: right;">Action</div>
+                    </div>
+                    <sc-if value="{{ awaitingEmpty }}">
+                      <div style="padding: 50px 20px; text-align: center;">
+                        <div style="font-size: 15px; font-weight: 600; color: #52525b;">All invoices submitted</div>
+                        <div style="font-size: 13px; color: #a2a2ac; margin-top: 5px;">New purchase orders from Mirraw will appear here to invoice.</div>
+                      </div>
+                    </sc-if>
+                    <sc-for list="{{ awaiting }}" as="p" hint-placeholder-count="2">
+                      <div style="display: grid; grid-template-columns: 160px 100px 140px 1fr 130px; gap: 14px; min-width: 820px; padding: 13px 20px; border-bottom: 1px solid #f4f4f6; align-items: center; font-size: 14px;">
+                        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #6c2a57;">{{ p.po }}</div>
+                        <div>{{ p.qtyLabel }}</div>
+                        <div style="font-weight: 600;">{{ p.amountLabel }}</div>
+                        <div style="min-width: 0;">
+                          <sc-if value="{{ p.noPending }}" hint-placeholder-val="{{ true }}">
+                            <label style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 9px; border: 1px dashed #c9b9c4; background: #fbf8fa; color: #6c2a57; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background:#f6eef2;border-color:#6c2a57;">
+                              <span style="font-size: 14px;">↑</span> Upload PDF
+                              <input type="file" accept="application/pdf" onChange="{{ p.onPick }}" style="display: none;" />
+                            </label>
+                          </sc-if>
+                          <sc-if value="{{ p.hasPending }}" hint-placeholder-val="{{ false }}">
+                            <div style="display: inline-flex; align-items: center; gap: 9px; max-width: 100%; padding: 7px 12px; border-radius: 9px; border: 1px solid #e4e4ea; background: #faf9fa;">
+                              <span style="font-size: 10px; font-weight: 700; color: #a01f1f; background: #fbe2e2; padding: 3px 6px; border-radius: 5px; flex-shrink: 0;">PDF</span>
+                              <span style="flex: 1; min-width: 0; font-size: 12.5px; color: #1c1c22; font-family: 'IBM Plex Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ p.pendingName }}</span>
+                              <button onClick="{{ p.clearPick }}" style="border: none; background: none; color: #9a9aa2; font-size: 14px; cursor: pointer; flex-shrink: 0; padding: 0;" style-hover="color:#1c1c22;">✕</button>
+                            </div>
+                          </sc-if>
+                        </div>
+                        <div style="text-align: right;">
+                          <button onClick="{{ p.onSubmit }}" style="{{ p.submitStyle }}">Submit</button>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+
+                  <div style="font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 12px;">Submitted Invoices</div>
+                  <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; overflow-x: auto;">
+                    <div style="display: grid; grid-template-columns: 160px 100px 140px 1fr 130px; gap: 12px; min-width: 720px; padding: 12px 20px; background: #fafafb; border-bottom: 1px solid #ebebef; font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.03em;">
+                      <div>PO Number</div><div>Quantity</div><div>Amount</div><div>Invoice</div><div>Submitted</div>
+                    </div>
+                    <sc-if value="{{ invoicesEmpty }}">
+                      <div style="padding: 56px 20px; text-align: center;">
+                        <div style="font-size: 15px; font-weight: 600; color: #52525b;">No invoices submitted yet</div>
+                        <div style="font-size: 13px; color: #a2a2ac; margin-top: 5px;">Submit your first invoice using the form above.</div>
+                      </div>
+                    </sc-if>
+                    <sc-for list="{{ invoices }}" as="p" hint-placeholder-count="3">
+                      <div style="display: grid; grid-template-columns: 160px 100px 140px 1fr 130px; gap: 12px; min-width: 720px; padding: 14px 20px; border-bottom: 1px solid #f4f4f6; align-items: center; font-size: 14px;">
+                        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #6c2a57;">{{ p.po }}</div>
+                        <div>{{ p.qtyLabel }}</div>
+                        <div style="font-weight: 600;">{{ p.amountLabel }}</div>
+                        <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                          <span style="font-size: 10px; font-weight: 700; color: #a01f1f; background: #fbe2e2; padding: 3px 6px; border-radius: 5px; flex-shrink: 0;">PDF</span>
+                          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #6b6b76; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ p.fileName }}</span>
+                        </div>
+                        <div style="color: #6b6b76;">{{ p.dateLabel }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- ADMIN payments -->
+              <sc-if value="{{ isAdmin }}">
+                <div>
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; gap: 16px; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                      <sc-for list="{{ aPayFilters }}" as="f" hint-placeholder-count="4">
+                        <button onClick="{{ f.onClick }}" style="{{ f.style }}">{{ f.label }}</button>
+                      </sc-for>
+                      <select onChange="{{ setAPayVendor }}" value="{{ aPayVendor }}" style="padding: 8px 12px; border-radius: 9px; border: 1px solid #e4e4ea; background: #fff; font-size: 13px; color: #52525b; cursor: pointer; margin-left: 4px;">
+                        <option value="all">All vendors</option>
+                        <sc-for list="{{ vendorOptions }}" as="v" hint-placeholder-count="3">
+                          <option value="{{ v.id }}">{{ v.name }}</option>
+                        </sc-for>
+                      </select>
+                    </div>
+                    <button onClick="{{ openRecordPay }}" style="display: flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: 9px; border: none; background: #6c2a57; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background:#571f44;">
+                      <span style="font-size: 17px; line-height: 1;">+</span> Record New Payment
+                    </button>
+                  </div>
+                  <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; overflow-x: auto;">
+                    <div style="display: grid; grid-template-columns: 1.2fr 140px 120px 120px 140px 160px 100px; gap: 12px; min-width: 1040px; padding: 12px 20px; background: #fafafb; border-bottom: 1px solid #ebebef; font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.03em;">
+                      <div>Vendor</div><div>Invoice Ref</div><div>Amount</div><div>Date</div><div>Reference No.</div><div>Status</div><div></div>
+                    </div>
+                    <sc-if value="{{ aPaymentsEmpty }}">
+                      <div style="padding: 60px 20px; text-align: center;">
+                        <div style="font-size: 15px; font-weight: 600; color: #52525b;">No matching payments</div>
+                        <div style="font-size: 13px; color: #a2a2ac; margin-top: 5px;">Adjust your filters to see more.</div>
+                      </div>
+                    </sc-if>
+                    <sc-for list="{{ aPayments }}" as="p" hint-placeholder-count="5">
+                      <div style="display: grid; grid-template-columns: 1.2fr 140px 120px 120px 140px 160px 100px; gap: 12px; min-width: 1040px; padding: 14px 20px; border-bottom: 1px solid #f4f4f6; align-items: center; font-size: 14px;">
+                        <div style="font-weight: 500;">{{ p.vendorName }}</div>
+                        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #6c2a57;">{{ p.ref }}</div>
+                        <div style="font-weight: 600;">{{ p.amountLabel }}</div>
+                        <div style="color: #6b6b76;">{{ p.dateLabel }}</div>
+                        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8a8a94;">{{ p.utr }}</div>
+                        <div><span style="{{ p.badgeStyle }}"><span style="{{ p.badgeDot }}"></span>{{ p.badgeLabel }}</span></div>
+                        <div style="text-align: right;">
+                          <sc-if value="{{ p.isDisputed }}">
+                            <button onClick="{{ p.onResolve }}" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #e4e4ea; background: #fff; color: #6c2a57; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background:#f3e9ef;">Resolve</button>
+                          </sc-if>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+          <sc-if value="{{ isProfile }}">
+            <div style="max-width: 720px;">
+              <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; overflow-x: auto;">
+                <div style="padding: 22px 24px; border-bottom: 1px solid #f0f0f3; display: flex; align-items: center; gap: 16px;">
+                  <div style="width: 52px; height: 52px; border-radius: 14px; background: #efe4eb; color: #6c2a57; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px;">AK</div>
+                  <div style="flex: 1;">
+                    <div style="font-size: 18px; font-weight: 600;">{{ profileName }}</div>
+                    <div style="font-size: 13.5px; color: #9a9aa2;">Vendor account · Mumbai, IN</div>
+                  </div>
+                  <sc-if value="{{ editing }}">
+                    <button onClick="{{ saveProfile }}" style="padding: 8px 16px; border-radius: 9px; border: none; background: #6c2a57; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;">Save Changes</button>
+                  </sc-if>
+                </div>
+                <div style="padding: 24px;">
+                  <div style="font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 14px;">Account · from Google</div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; margin-bottom: 26px;">
+                    <div>
+                      <div style="font-size: 12.5px; color: #9a9aa2; margin-bottom: 5px;">Vendor Name</div>
+                      <div style="font-size: 14.5px; font-weight: 500;">{{ profileName }}</div>
+                    </div>
+                    <div>
+                      <div style="font-size: 12.5px; color: #9a9aa2; margin-bottom: 5px;">Email (read-only)</div>
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 14.5px; font-weight: 500;">{{ profileEmail }}</span>
+                        <span style="font-size: 11px; color: #8a8a94; background: #f2f2f4; padding: 2px 7px; border-radius: 5px;">Google</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 14px;">Contact Information</div>
+
+                  <sc-if value="{{ editing }}">
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                      <div>
+                        <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Primary Contact</div>
+                        <input value="{{ profileForm.contact }}" onChange="{{ onPfContact }}" style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none;" />
+                      </div>
+                      <div>
+                        <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Phone</div>
+                        <input value="{{ profileForm.phone }}" onChange="{{ onPfPhone }}" style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none;" />
+                      </div>
+                      <div>
+                        <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Address</div>
+                        <textarea onChange="{{ onPfAddress }}" style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none; resize: vertical; min-height: 64px;">{{ profileForm.address }}</textarea>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ isProfileView }}" hint-placeholder-val="{{ true }}">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px;">
+                      <div>
+                        <div style="font-size: 12.5px; color: #9a9aa2; margin-bottom: 5px;">Primary Contact</div>
+                        <div style="font-size: 14.5px; font-weight: 500;">Ananya Kapoor</div>
+                      </div>
+                      <div>
+                        <div style="font-size: 12.5px; color: #9a9aa2; margin-bottom: 5px;">Phone</div>
+                        <div style="font-size: 14.5px; font-weight: 500;">+91 98200 44112</div>
+                      </div>
+                      <div>
+                        <div style="font-size: 12.5px; color: #9a9aa2; margin-bottom: 5px;">GSTIN</div>
+                        <div style="font-size: 14.5px; font-weight: 500; font-family: 'IBM Plex Mono', monospace;">27AAECM1234F1Z5</div>
+                      </div>
+                      <div>
+                        <div style="font-size: 12.5px; color: #9a9aa2; margin-bottom: 5px;">Address</div>
+                        <div style="font-size: 14.5px; font-weight: 500;">14 Linking Rd, Bandra West, Mumbai 400050</div>
+                      </div>
+                    </div>
+                    <button onClick="{{ editProfile }}" style="margin-top: 24px; padding: 9px 16px; border-radius: 9px; border: 1px solid #e4e4ea; background: #fff; color: #6c2a57; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background:#f3e9ef;">Edit Contact Info</button>
+                  </sc-if>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isVendors }}">
+            <div style="max-width: 1000px;">
+              <div style="display: flex; justify-content: flex-end; margin-bottom: 18px;">
+                <button onClick="{{ openAddVendor }}" style="display: flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: 9px; border: none; background: #6c2a57; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background:#571f44;">
+                  <span style="font-size: 17px; line-height: 1;">+</span> Add Vendor
+                </button>
+              </div>
+              <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; overflow-x: auto;">
+                <div style="display: grid; grid-template-columns: 1.4fr 1.4fr 130px 180px; gap: 12px; min-width: 780px; padding: 12px 20px; background: #fafafb; border-bottom: 1px solid #ebebef; font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.03em;">
+                  <div>Vendor</div><div>Email</div><div>Status</div><div style="text-align: right;">Actions</div>
+                </div>
+                <sc-for list="{{ vendorRows }}" as="v" hint-placeholder-count="6">
+                  <div style="display: grid; grid-template-columns: 1.4fr 1.4fr 130px 180px; gap: 12px; min-width: 780px; padding: 13px 20px; border-bottom: 1px solid #f4f4f6; align-items: center; font-size: 14px;">
+                    <div style="display: flex; align-items: center; gap: 11px;">
+                      <div style="width: 32px; height: 32px; border-radius: 50%; background: #efe4eb; color: #6c2a57; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; flex-shrink: 0;">{{ v.initials }}</div>
+                      <span style="font-weight: 500;">{{ v.name }}</span>
+                    </div>
+                    <div style="color: #6b6b76;">{{ v.email }}</div>
+                    <div><span style="{{ v.badgeStyle }}"><span style="{{ v.badgeDot }}"></span>{{ v.badgeLabel }}</span></div>
+                    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                      <button onClick="{{ v.onEdit }}" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #e4e4ea; background: #fff; color: #52525b; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background:#f6f6f8;">Edit</button>
+                      <sc-if value="{{ v.isActive }}" hint-placeholder-val="{{ true }}">
+                        <button onClick="{{ v.onToggle }}" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #f0d3d3; background: #fff; color: #a01f1f; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background:#fbe2e2;">Suspend</button>
+                      </sc-if>
+                      <sc-if value="{{ v.isActive }}" hint-placeholder-val="{{ false }}">
+                        <span style="display: none;"></span>
+                      </sc-if>
+                      <sc-if value="{{ v.isSuspended }}" hint-placeholder-val="{{ false }}">
+                        <button onClick="{{ v.onToggle }}" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cfe8d8; background: #fff; color: #1b6b3a; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background:#dcf3e4;">Reactivate</button>
+                      </sc-if>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isAudit }}">
+            <div style="max-width: 1000px;">
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;">
+                <span style="font-size: 13px; color: #8a8a94; font-weight: 500;">Filter by actor</span>
+                <select onChange="{{ setAuditActor }}" value="{{ auditActor }}" style="padding: 8px 12px; border-radius: 9px; border: 1px solid #e4e4ea; background: #fff; font-size: 13px; color: #52525b; cursor: pointer;">
+                  <sc-for list="{{ actors }}" as="a" hint-placeholder-count="4">
+                    <option value="{{ a.val }}">{{ a.label }}</option>
+                  </sc-for>
+                </select>
+              </div>
+              <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; overflow-x: auto;">
+                <div style="display: grid; grid-template-columns: 1.4fr 1.4fr 1fr 160px; gap: 12px; min-width: 780px; padding: 12px 20px; background: #fafafb; border-bottom: 1px solid #ebebef; font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.03em;">
+                  <div>Actor</div><div>Action</div><div>Target</div><div>Timestamp</div>
+                </div>
+                <sc-if value="{{ auditEmpty }}">
+                  <div style="padding: 60px 20px; text-align: center;">
+                    <div style="font-size: 15px; font-weight: 600; color: #52525b;">No log entries</div>
+                    <div style="font-size: 13px; color: #a2a2ac; margin-top: 5px;">No actions match this filter.</div>
+                  </div>
+                </sc-if>
+                <sc-for list="{{ auditRows }}" as="a" hint-placeholder-count="8">
+                  <div style="display: grid; grid-template-columns: 1.4fr 1.4fr 1fr 160px; gap: 12px; min-width: 780px; padding: 12px 20px; border-bottom: 1px solid #f4f4f6; align-items: center; font-size: 13.5px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <div style="width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 11px; flex-shrink: 0; background: #f2eef1; color: #6c2a57;">{{ a.initials }}</div>
+                      <span style="font-weight: 500;">{{ a.actor }}</span>
+                    </div>
+                    <div style="color: #52525b;">{{ a.action }}</div>
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #6c2a57;">{{ a.target }}</div>
+                    <div style="color: #9a9aa2; font-family: 'IBM Plex Mono', monospace; font-size: 12px;">{{ a.ts }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+          <!--SCREENS-->
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Accept demand (vendor) -->
+  <sc-if value="{{ showAccept }}">
+    <div onClick="{{ closeAccept }}" style="position: fixed; inset: 0; z-index: 100; background: rgba(24,20,26,0.42); display: flex; align-items: center; justify-content: center; padding: 24px; animation: fadeIn 0.18s ease;">
+      <div onClick="{{ stop }}" style="width: 100%; max-width: 440px; background: #fff; border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,0.28); overflow: hidden;">
+        <div style="padding: 20px 24px; border-bottom: 1px solid #f0f0f3;">
+          <div style="font-size: 17px; font-weight: 600;">Accept Reorder</div>
+          <div style="font-size: 13px; color: #9a9aa2; margin-top: 3px;"><span style="font-family: 'IBM Plex Mono', monospace; color: #6c2a57;">{{ acceptSku }}</span> · {{ acceptType }}</div>
+        </div>
+        <div style="padding: 22px 24px; display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; background: #faf9fa; border: 1px solid #f0f0f3; border-radius: 10px; padding: 12px 14px;">
+            <span style="font-size: 13px; color: #6b6b76;">Quantity requested by Mirraw</span>
+            <span style="font-size: 16px; font-weight: 700;">{{ acceptReq }}</span>
+          </div>
+          <div>
+            <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">How many can you fulfill?</div>
+            <input value="{{ acceptModal.fulfillQty }}" onChange="{{ onAcceptQty }}" type="number" placeholder="Enter quantity" style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none;" style-focus="border-color:#6c2a57;" />
+          </div>
+          <sc-if value="{{ acceptFull }}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #1b6b3a; font-weight: 500;"><span style="width:16px;height:16px;border-radius:50%;background:#2e9e58;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;">✓</span> Fulfills the full requested quantity.</div>
+          </sc-if>
+          <sc-if value="{{ acceptPartial }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <div style="font-size: 12.5px; color: #8a5a00; margin-bottom: 6px; font-weight: 600;">Short of {{ acceptShort }} units — add a remark</div>
+              <textarea onChange="{{ onAcceptRemark }}" placeholder="Reason you can't fulfill the full quantity (e.g. limited stock, expected restock date)..." style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none; resize: vertical; min-height: 64px;" style-focus="border-color:#6c2a57;">{{ acceptModal.remark }}</textarea>
+            </div>
+          </sc-if>
+        </div>
+        <div style="padding: 16px 24px; border-top: 1px solid #f0f0f3; display: flex; justify-content: flex-end; gap: 10px;">
+          <button onClick="{{ closeAccept }}" style="padding: 9px 16px; border-radius: 9px; border: 1px solid #e4e4ea; background: #fff; color: #52525b; font-size: 14px; font-weight: 500; cursor: pointer;">Cancel</button>
+          <button onClick="{{ submitAccept }}" style="padding: 9px 18px; border-radius: 9px; border: none; background: #1b6b3a; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background:#155a31;">Add to Updates</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Reject demand (vendor) -->
+  <sc-if value="{{ showReject }}">
+    <div onClick="{{ closeReject }}" style="position: fixed; inset: 0; z-index: 100; background: rgba(24,20,26,0.42); display: flex; align-items: center; justify-content: center; padding: 24px; animation: fadeIn 0.18s ease;">
+      <div onClick="{{ stop }}" style="width: 100%; max-width: 440px; background: #fff; border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,0.28); overflow: hidden;">
+        <div style="padding: 20px 24px; border-bottom: 1px solid #f0f0f3;">
+          <div style="font-size: 17px; font-weight: 600;">Reject Reorder</div>
+          <div style="font-size: 13px; color: #9a9aa2; margin-top: 3px;"><span style="font-family: 'IBM Plex Mono', monospace; color: #6c2a57;">{{ rejectSku }}</span> · {{ rejectType }}</div>
+        </div>
+        <div style="padding: 22px 24px; display: flex; flex-direction: column; gap: 16px;">
+          <div>
+            <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Reason for rejecting</div>
+            <select value="{{ rejectModal.reason }}" onChange="{{ onRejectReason }}" style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none; background: #fff;">
+              <option value="">Select a reason...</option>
+              <sc-for list="{{ rejectReasons }}" as="r" hint-placeholder-count="6">
+                <option value="{{ r }}">{{ r }}</option>
+              </sc-for>
+            </select>
+          </div>
+          <sc-if value="{{ rejectOther }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Please specify</div>
+              <textarea onChange="{{ onRejectOther }}" placeholder="Describe your reason for rejecting..." style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none; resize: vertical; min-height: 64px;" style-focus="border-color:#6c2a57;">{{ rejectModal.other }}</textarea>
+            </div>
+          </sc-if>
+        </div>
+        <div style="padding: 16px 24px; border-top: 1px solid #f0f0f3; display: flex; justify-content: flex-end; gap: 10px;">
+          <button onClick="{{ closeReject }}" style="padding: 9px 16px; border-radius: 9px; border: 1px solid #e4e4ea; background: #fff; color: #52525b; font-size: 14px; font-weight: 500; cursor: pointer;">Cancel</button>
+          <button onClick="{{ submitReject }}" style="padding: 9px 18px; border-radius: 9px; border: none; background: #a01f1f; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background:#851919;">Confirm Reject</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- New Reorder Request (vendor) -->
+  <sc-if value="{{ showReorderForm }}">
+    <div onClick="{{ closeReorderForm }}" style="position: fixed; inset: 0; z-index: 100; background: rgba(24,20,26,0.42); display: flex; align-items: center; justify-content: center; padding: 24px; animation: fadeIn 0.18s ease;">
+      <div onClick="{{ stop }}" style="width: 100%; max-width: 460px; background: #fff; border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,0.28); overflow: hidden;">
+        <div style="padding: 20px 24px; border-bottom: 1px solid #f0f0f3;">
+          <div style="font-size: 17px; font-weight: 600;">New Reorder Request</div>
+          <div style="font-size: 13px; color: #9a9aa2; margin-top: 3px;">Submit a restock request to Mirraw for review.</div>
+        </div>
+        <div style="padding: 22px 24px; display: flex; flex-direction: column; gap: 16px;">
+          <div>
+            <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Product / SKU</div>
+            <input value="{{ reorderForm.sku }}" onChange="{{ onReSku }}" placeholder="e.g. ANK-SR-021" style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none; font-family: 'IBM Plex Mono', monospace;" style-focus="border-color:#6c2a57;" />
+          </div>
+          <div>
+            <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Product Name</div>
+            <input value="{{ reorderForm.product }}" onChange="{{ onReProduct }}" placeholder="e.g. Silk Saree — Emerald" style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none;" style-focus="border-color:#6c2a57;" />
+          </div>
+          <div>
+            <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Quantity</div>
+            <input value="{{ reorderForm.qty }}" onChange="{{ onReQty }}" placeholder="e.g. 150" type="number" style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none;" style-focus="border-color:#6c2a57;" />
+          </div>
+          <div>
+            <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Notes <span style="color: #b4b4bc;">(optional)</span></div>
+            <textarea onChange="{{ onReNotes }}" placeholder="Any special instructions..." style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none; resize: vertical; min-height: 60px;" style-focus="border-color:#6c2a57;">{{ reorderForm.notes }}</textarea>
+          </div>
+        </div>
+        <div style="padding: 16px 24px; border-top: 1px solid #f0f0f3; display: flex; justify-content: flex-end; gap: 10px;">
+          <button onClick="{{ closeReorderForm }}" style="padding: 9px 16px; border-radius: 9px; border: 1px solid #e4e4ea; background: #fff; color: #52525b; font-size: 14px; font-weight: 500; cursor: pointer;">Cancel</button>
+          <button onClick="{{ submitReorder }}" style="padding: 9px 18px; border-radius: 9px; border: none; background: #6c2a57; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background:#571f44;">Submit Request</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Confirm / Dispute payment (vendor) -->
+  <sc-if value="{{ showPayAction }}">
+    <div onClick="{{ closePayAction }}" style="position: fixed; inset: 0; z-index: 100; background: rgba(24,20,26,0.42); display: flex; align-items: center; justify-content: center; padding: 24px; animation: fadeIn 0.18s ease;">
+      <div onClick="{{ stop }}" style="width: 100%; max-width: 420px; background: #fff; border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,0.28); overflow: hidden;">
+        <div style="padding: 22px 24px 18px;">
+          <div style="font-size: 17px; font-weight: 600;">{{ payActionTitle }}</div>
+          <div style="font-size: 13.5px; color: #6b6b76; margin-top: 8px; line-height: 1.5;">{{ payActionBody }}</div>
+          <div style="margin-top: 16px; background: #faf9fa; border: 1px solid #f0f0f3; border-radius: 10px; padding: 14px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="font-size: 13px; color: #9a9aa2;">Invoice</span><span style="font-size: 13px; font-weight: 600; font-family: 'IBM Plex Mono', monospace; color: #6c2a57;">{{ payActionObj.pay.ref }}</span></div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="font-size: 13px; color: #9a9aa2;">Amount</span><span style="font-size: 13px; font-weight: 600;">{{ payActionObj.pay.amountLabel }}</span></div>
+            <div style="display: flex; justify-content: space-between;"><span style="font-size: 13px; color: #9a9aa2;">Reference</span><span style="font-size: 13px; font-family: 'IBM Plex Mono', monospace; color: #6b6b76;">{{ payActionObj.pay.utr }}</span></div>
+          </div>
+        </div>
+        <div style="padding: 16px 24px; border-top: 1px solid #f0f0f3; display: flex; justify-content: flex-end; gap: 10px;">
+          <button onClick="{{ closePayAction }}" style="padding: 9px 16px; border-radius: 9px; border: 1px solid #e4e4ea; background: #fff; color: #52525b; font-size: 14px; font-weight: 500; cursor: pointer;">Cancel</button>
+          <button onClick="{{ confirmPayAction }}" style="{{ payActionBtnStyle }}">{{ payActionBtn }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Record New Payment (admin) -->
+  <sc-if value="{{ showRecordPay }}">
+    <div onClick="{{ closeRecordPay }}" style="position: fixed; inset: 0; z-index: 100; background: rgba(24,20,26,0.42); display: flex; align-items: center; justify-content: center; padding: 24px; animation: fadeIn 0.18s ease;">
+      <div onClick="{{ stop }}" style="width: 100%; max-width: 460px; background: #fff; border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,0.28); overflow: hidden;">
+        <div style="padding: 20px 24px; border-bottom: 1px solid #f0f0f3;">
+          <div style="font-size: 17px; font-weight: 600;">Record New Payment</div>
+          <div style="font-size: 13px; color: #9a9aa2; margin-top: 3px;">Log a payment sent to a vendor for confirmation.</div>
+        </div>
+        <div style="padding: 22px 24px; display: flex; flex-direction: column; gap: 16px;">
+          <div>
+            <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Vendor</div>
+            <select value="{{ recordPay.vendor }}" onChange="{{ onRpVendor }}" style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none; background: #fff;">
+              <option value="">Select vendor...</option>
+              <sc-for list="{{ vendorOptions }}" as="v" hint-placeholder-count="3">
+                <option value="{{ v.id }}">{{ v.name }}</option>
+              </sc-for>
+            </select>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div>
+              <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Invoice Ref</div>
+              <input value="{{ recordPay.ref }}" onChange="{{ onRpRef }}" placeholder="INV-2026-0430" style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none; font-family: 'IBM Plex Mono', monospace;" style-focus="border-color:#6c2a57;" />
+            </div>
+            <div>
+              <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Amount (₹)</div>
+              <input value="{{ recordPay.amount }}" onChange="{{ onRpAmount }}" type="number" placeholder="150000" style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none;" style-focus="border-color:#6c2a57;" />
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div>
+              <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Date</div>
+              <input value="{{ recordPay.date }}" onChange="{{ onRpDate }}" type="date" style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none;" style-focus="border-color:#6c2a57;" />
+            </div>
+            <div>
+              <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Reference No.</div>
+              <input value="{{ recordPay.utr }}" onChange="{{ onRpUtr }}" placeholder="UTR..." style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none; font-family: 'IBM Plex Mono', monospace;" style-focus="border-color:#6c2a57;" />
+            </div>
+          </div>
+        </div>
+        <div style="padding: 16px 24px; border-top: 1px solid #f0f0f3; display: flex; justify-content: flex-end; gap: 10px;">
+          <button onClick="{{ closeRecordPay }}" style="padding: 9px 16px; border-radius: 9px; border: 1px solid #e4e4ea; background: #fff; color: #52525b; font-size: 14px; font-weight: 500; cursor: pointer;">Cancel</button>
+          <button onClick="{{ submitRecordPay }}" style="padding: 9px 18px; border-radius: 9px; border: none; background: #6c2a57; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background:#571f44;">Record Payment</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Resolve dispute (admin) -->
+  <sc-if value="{{ showResolve }}">
+    <div onClick="{{ closeResolve }}" style="position: fixed; inset: 0; z-index: 100; background: rgba(24,20,26,0.42); display: flex; align-items: center; justify-content: center; padding: 24px; animation: fadeIn 0.18s ease;">
+      <div onClick="{{ stop }}" style="width: 100%; max-width: 440px; background: #fff; border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,0.28); overflow: hidden;">
+        <div style="padding: 22px 24px 4px;">
+          <div style="font-size: 17px; font-weight: 600;">Resolve Dispute</div>
+          <div style="font-size: 13.5px; color: #6b6b76; margin-top: 8px; line-height: 1.5;">Mark <span style="font-family: 'IBM Plex Mono', monospace; color: #6c2a57;">{{ resolveObj.ref }}</span> ({{ resolveObj.amountLabel }}) from {{ resolveObj.vendorName }} as resolved and confirmed.</div>
+        </div>
+        <div style="padding: 16px 24px 22px;">
+          <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Resolution note</div>
+          <textarea onChange="{{ onResolveNote }}" placeholder="Describe how this was resolved..." style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none; resize: vertical; min-height: 70px;" style-focus="border-color:#6c2a57;">{{ resolveNote }}</textarea>
+        </div>
+        <div style="padding: 16px 24px; border-top: 1px solid #f0f0f3; display: flex; justify-content: flex-end; gap: 10px;">
+          <button onClick="{{ closeResolve }}" style="padding: 9px 16px; border-radius: 9px; border: 1px solid #e4e4ea; background: #fff; color: #52525b; font-size: 14px; font-weight: 500; cursor: pointer;">Cancel</button>
+          <button onClick="{{ submitResolve }}" style="padding: 9px 18px; border-radius: 9px; border: none; background: #6c2a57; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background:#571f44;">Resolve & Confirm</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Add / Edit vendor (admin) -->
+  <sc-if value="{{ showVendorForm }}">
+    <div onClick="{{ closeVendorForm }}" style="position: fixed; inset: 0; z-index: 100; background: rgba(24,20,26,0.42); display: flex; align-items: center; justify-content: center; padding: 24px; animation: fadeIn 0.18s ease;">
+      <div onClick="{{ stop }}" style="width: 100%; max-width: 440px; background: #fff; border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,0.28); overflow: hidden;">
+        <div style="padding: 20px 24px; border-bottom: 1px solid #f0f0f3;">
+          <div style="font-size: 17px; font-weight: 600;">{{ vendorFormTitle }}</div>
+        </div>
+        <div style="padding: 22px 24px; display: flex; flex-direction: column; gap: 16px;">
+          <div>
+            <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Vendor Name</div>
+            <input value="{{ vendorForm.name }}" onChange="{{ onVfName }}" placeholder="e.g. Nakshatra Crafts" style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none;" style-focus="border-color:#6c2a57;" />
+          </div>
+          <div>
+            <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Email</div>
+            <input value="{{ vendorForm.email }}" onChange="{{ onVfEmail }}" placeholder="orders@vendor.in" style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none;" style-focus="border-color:#6c2a57;" />
+          </div>
+          <div>
+            <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500;">Status</div>
+            <select value="{{ vendorFormStatus }}" onChange="{{ onVfStatus }}" style="width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none; background: #fff;">
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+            </select>
+          </div>
+        </div>
+        <div style="padding: 16px 24px; border-top: 1px solid #f0f0f3; display: flex; justify-content: flex-end; gap: 10px;">
+          <button onClick="{{ closeVendorForm }}" style="padding: 9px 16px; border-radius: 9px; border: 1px solid #e4e4ea; background: #fff; color: #52525b; font-size: 14px; font-weight: 500; cursor: pointer;">Cancel</button>
+          <button onClick="{{ submitVendor }}" style="padding: 9px 18px; border-radius: 9px; border: none; background: #6c2a57; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background:#571f44;">Save Vendor</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Admin reorder detail panel -->
+  <sc-if value="{{ showDetail }}">
+    <div onClick="{{ closeDetail }}" style="position: fixed; inset: 0; z-index: 100; background: rgba(24,20,26,0.42); display: flex; justify-content: flex-end; animation: fadeIn 0.18s ease;">
+      <div onClick="{{ stop }}" style="width: 440px; max-width: 92vw; background: #fff; height: 100%; box-shadow: -18px 0 60px rgba(0,0,0,0.18); display: flex; flex-direction: column; animation: panelIn 0.24s cubic-bezier(0.16,1,0.3,1);">
+        <div style="padding: 22px 26px; border-bottom: 1px solid #f0f0f3; display: flex; align-items: flex-start; justify-content: space-between;">
+          <div>
+            <div style="font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.04em;">Reorder Request</div>
+            <div style="font-size: 19px; font-weight: 600; margin-top: 5px; font-family: 'IBM Plex Mono', monospace; color: #6c2a57;">{{ detailR.sku }}</div>
+          </div>
+          <button onClick="{{ closeDetail }}" style="width: 30px; height: 30px; border-radius: 8px; border: none; background: #f4f4f6; color: #6b6b76; font-size: 17px; cursor: pointer;" style-hover="background:#ebebef;">✕</button>
+        </div>
+        <div style="flex: 1; overflow-y: auto; padding: 24px 26px;">
+          <div style="display: flex; flex-direction: column; gap: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 13px; color: #9a9aa2;">Status</span><span style="{{ detailR.badgeStyle }}"><span style="{{ detailR.badgeDot }}"></span>{{ detailR.badgeLabel }}</span></div>
+            <div style="display: flex; justify-content: space-between;"><span style="font-size: 13px; color: #9a9aa2;">Vendor</span><span style="font-size: 14px; font-weight: 500;">{{ detailR.vendorName }}</span></div>
+            <div style="display: flex; justify-content: space-between;"><span style="font-size: 13px; color: #9a9aa2;">Product</span><span style="font-size: 14px; font-weight: 500; text-align: right;">{{ detailR.product }}</span></div>
+            <div style="display: flex; justify-content: space-between;"><span style="font-size: 13px; color: #9a9aa2;">Quantity</span><span style="font-size: 14px; font-weight: 500;">{{ detailR.qtyLabel }} units</span></div>
+            <div style="display: flex; justify-content: space-between;"><span style="font-size: 13px; color: #9a9aa2;">Requested</span><span style="font-size: 14px; font-weight: 500;">{{ detailR.dateLabel }}</span></div>
+          </div>
+          <div style="margin-top: 26px;">
+            <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 8px; font-weight: 600;">Admin notes to vendor</div>
+            <textarea value="{{ detailNotes }}" onChange="{{ onDetailNotes }}" placeholder="Add a note explaining your decision..." style="width: 100%; padding: 11px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none; resize: vertical; min-height: 90px;" style-focus="border-color:#6c2a57;">{{ detailNotes }}</textarea>
+          </div>
+        </div>
+        <div style="padding: 18px 26px; border-top: 1px solid #f0f0f3; display: flex; gap: 10px;">
+          <button onClick="{{ reject }}" style="flex: 1; padding: 11px; border-radius: 9px; border: 1px solid #f0d3d3; background: #fff; color: #a01f1f; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background:#fbe2e2;">Reject</button>
+          <button onClick="{{ approve }}" style="flex: 1; padding: 11px; border-radius: 9px; border: none; background: #1b6b3a; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background:#155a31;">Approve</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}">
+    <div style="position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); z-index: 200; animation: toastIn 0.28s cubic-bezier(0.16,1,0.3,1);">
+      <div style="display: flex; align-items: center; gap: 11px; background: #1c1c22; color: #fff; padding: 12px 18px; border-radius: 11px; box-shadow: 0 12px 34px rgba(0,0,0,0.24); font-size: 14px; font-weight: 500;">
+        <span style="width: 18px; height: 18px; border-radius: 50%; background: #2e9e58; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0;">✓</span>
+        {{ toast }}
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;820px&quot;}}">
+class Component extends DCLogic {
+  state = {
+    portal: 'vendor',
+    loggedIn: false,
+    screen: 'dashboard',
+    toast: null,
+    // vendor interactive
+    reorderForm: null,           // {sku,product,qty,notes}
+    vFilterStatus: 'all',
+    payAction: null,             // {id, kind:'confirm'|'dispute'}
+    reorderSubtab: 'new',        // 'new' | 'updates'
+    acceptModal: null,           // {id, fulfillQty, remark}
+    rejectModal: null,           // {id, reason, other}
+    pendingFiles: {},            // { invoiceId: fileName } chosen but not yet submitted
+    profileForm: null,
+    // admin interactive
+    aReorderStatus: 'all',
+    aReorderVendor: 'all',
+    detail: null,                // reorder id in detail panel
+    detailNotes: '',
+    aPayStatus: 'all',
+    aPayVendor: 'all',
+    recordPay: null,             // form obj
+    resolvePay: null,            // {id}
+    resolveNote: '',
+    vendorForm: null,            // {id?, name, email, status}
+    auditActor: 'all',
+    // data
+    vendors: [
+      { id: 'v1', name: 'Anokhi Textiles', email: 'anokhi@textiles.in', status: 'active' },
+      { id: 'v2', name: 'Rivaayat Studio', email: 'orders@rivaayat.co', status: 'active' },
+      { id: 'v3', name: 'Bandhani & Co', email: 'sales@bandhanico.in', status: 'active' },
+      { id: 'v4', name: 'Kaledo Exports', email: 'hello@kaledo.in', status: 'suspended' },
+      { id: 'v5', name: 'Meher Handlooms', email: 'meher@handloom.in', status: 'active' },
+      { id: 'v6', name: 'Zariya Weaves', email: 'contact@zariya.in', status: 'active' },
+    ],
+    reorders: [
+      { id: 'r1', vendor: 'v1', sku: 'ANK-SR-014', product: 'Silk Saree — Maroon', qty: 120, status: 'pending', date: '2026-06-28', notes: '' },
+      { id: 'r2', vendor: 'v1', sku: 'ANK-KT-220', product: 'Cotton Kurti Set', qty: 300, status: 'approved', date: '2026-06-20', notes: 'Approved. Ship by Jul 5.' },
+      { id: 'r3', vendor: 'v1', sku: 'ANK-LH-008', product: 'Lehenga — Ivory', qty: 40, status: 'rejected', date: '2026-06-12', notes: 'Design discontinued this season.' },
+      { id: 'r4', vendor: 'v2', sku: 'RIV-DP-101', product: 'Dupatta — Blockprint', qty: 200, status: 'pending', date: '2026-06-27', notes: '' },
+      { id: 'r5', vendor: 'v3', sku: 'BND-BG-055', product: 'Bandhani Bagru Suit', qty: 150, status: 'approved', date: '2026-06-18', notes: 'Approved at revised rate.' },
+      { id: 'r6', vendor: 'v5', sku: 'MEH-SH-030', product: 'Handloom Shawl', qty: 90, status: 'pending', date: '2026-06-29', notes: '' },
+      { id: 'r7', vendor: 'v6', sku: 'ZAR-BL-077', product: 'Zari Blouse Piece', qty: 500, status: 'pending', date: '2026-06-30', notes: '' },
+      { id: 'r8', vendor: 'v1', sku: 'ANK-SR-019', product: 'Silk Saree — Teal', qty: 80, status: 'approved', date: '2026-06-05', notes: 'Approved.' },
+    ],
+    payments: [
+      { id: 'p1', ref: 'INV-2026-0412', vendor: 'v1', amount: 240000, date: '2026-06-25', utr: 'UTR8891234', status: 'Pending Confirmation' },
+      { id: 'p2', ref: 'INV-2026-0388', vendor: 'v1', amount: 115500, date: '2026-06-10', utr: 'UTR8712009', status: 'Confirmed' },
+      { id: 'p3', ref: 'INV-2026-0351', vendor: 'v1', amount: 86000, date: '2026-05-28', utr: 'UTR8654432', status: 'Disputed' },
+      { id: 'p4', ref: 'INV-2026-0420', vendor: 'v2', amount: 310000, date: '2026-06-26', utr: 'UTR8899871', status: 'Pending Confirmation' },
+      { id: 'p5', ref: 'INV-2026-0399', vendor: 'v3', amount: 172300, date: '2026-06-15', utr: 'UTR8760012', status: 'Confirmed' },
+      { id: 'p6', ref: 'INV-2026-0405', vendor: 'v6', amount: 405000, date: '2026-06-22', utr: 'UTR8801234', status: 'Disputed' },
+      { id: 'p7', ref: 'INV-2026-0370', vendor: 'v5', amount: 64800, date: '2026-06-08', utr: 'UTR8690001', status: 'Confirmed' },
+    ],
+    audit: [
+      { actor: 'Priya (Admin)', action: 'approved reorder', target: 'ANK-KT-220', ts: '2026-06-20 09:14' },
+      { actor: 'Anokhi Textiles', action: 'submitted reorder', target: 'ANK-SR-014', ts: '2026-06-28 11:02' },
+      { actor: 'Rahul (Admin)', action: 'recorded payment', target: 'INV-2026-0420', ts: '2026-06-26 16:40' },
+      { actor: 'Anokhi Textiles', action: 'confirmed payment', target: 'INV-2026-0388', ts: '2026-06-11 10:20' },
+      { actor: 'Priya (Admin)', action: 'rejected reorder', target: 'ANK-LH-008', ts: '2026-06-12 14:05' },
+      { actor: 'Zariya Weaves', action: 'disputed payment', target: 'INV-2026-0405', ts: '2026-06-23 08:50' },
+      { actor: 'Rahul (Admin)', action: 'suspended vendor', target: 'Kaledo Exports', ts: '2026-06-14 12:30' },
+      { actor: 'Bandhani & Co', action: 'submitted reorder', target: 'BND-BG-055', ts: '2026-06-18 15:22' },
+    ],
+    // Incoming reorder demands from Mirraw to the current vendor
+    demands: [
+      { id: 'd1', sku: 'ANK-SR-014', pid: 'PID-88213', type: 'Silk Saree', cost: 1850, qty: 120, status: 'new', fulfillQty: null, remark: '', reason: '', locked: false },
+      { id: 'd2', sku: 'ANK-KT-220', pid: 'PID-90455', type: 'Cotton Kurti Set', cost: 640, qty: 300, status: 'new', fulfillQty: null, remark: '', reason: '', locked: false },
+      { id: 'd3', sku: 'ANK-DP-101', pid: 'PID-77120', type: 'Blockprint Dupatta', cost: 410, qty: 200, status: 'new', fulfillQty: null, remark: '', reason: '', locked: false },
+      { id: 'd4', sku: 'ANK-LH-330', pid: 'PID-65540', type: 'Bridal Lehenga', cost: 5200, qty: 25, status: 'new', fulfillQty: null, remark: '', reason: '', locked: false },
+      { id: 'd5', sku: 'ANK-BL-077', pid: 'PID-81002', type: 'Zari Blouse Piece', cost: 520, qty: 500, status: 'rejected', fulfillQty: null, remark: '', reason: 'Cost price too low', locked: false },
+      { id: 'd6', sku: 'ANK-SH-030', pid: 'PID-70088', type: 'Handloom Shawl', cost: 980, qty: 90, status: 'partial', fulfillQty: 60, remark: 'Only 60 in stock; balance expected by mid-July.', reason: '', locked: false },
+    ],
+    // Purchase orders synced from the sheet. status 'Awaiting Invoice' = vendor still needs to attach a PDF.
+    invoices: [
+      { id: 'i1', po: 'PO-2026-0501', qty: 150, amount: 90000, fileName: null, status: 'Awaiting Invoice', date: null },
+      { id: 'i2', po: 'PO-2026-0498', qty: 220, amount: 132000, fileName: null, status: 'Awaiting Invoice', date: null },
+      { id: 'i3', po: 'PO-2026-0412', qty: 120, amount: 240000, fileName: 'invoice-0412.pdf', status: 'Paid', date: '2026-06-25' },
+      { id: 'i4', po: 'PO-2026-0439', qty: 300, amount: 115500, fileName: 'invoice-0439.pdf', status: 'Uploaded', date: '2026-06-28' },
+      { id: 'i5', po: 'PO-2026-0388', qty: 80, amount: 86000, fileName: 'invoice-0388.pdf', status: 'Disputed', date: '2026-05-28' },
+    ],
+  };
+
+  cur = 'v1'; // logged-in vendor id
+
+  // ---------- helpers ----------
+  vendorName(id) { const v = this.state.vendors.find(x => x.id === id); return v ? v.name : '—'; }
+  money(n) { return '₹' + n.toLocaleString('en-IN'); }
+  fmtDate(d) { const [y, m, day] = d.split('-'); const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return day + ' ' + mo[+m - 1] + ' ' + y; }
+  badge(status) {
+    const m = {
+      pending: { bg: '#fbeed1', c: '#8a5a00', dot: '#d99200', label: 'Pending' },
+      approved: { bg: '#dcf3e4', c: '#1b6b3a', dot: '#2e9e58', label: 'Approved' },
+      rejected: { bg: '#fbe2e2', c: '#a01f1f', dot: '#d64545', label: 'Rejected' },
+      'Pending Confirmation': { bg: '#fbeed1', c: '#8a5a00', dot: '#d99200', label: 'Pending Confirmation' },
+      Confirmed: { bg: '#dcf3e4', c: '#1b6b3a', dot: '#2e9e58', label: 'Confirmed' },
+      Disputed: { bg: '#fbe2e2', c: '#a01f1f', dot: '#d64545', label: 'Disputed' },
+      accepted: { bg: '#dcf3e4', c: '#1b6b3a', dot: '#2e9e58', label: 'Accepted' },
+      partial: { bg: '#fbeed1', c: '#8a5a00', dot: '#d99200', label: 'Partial' },
+      'Under Review': { bg: '#fbeed1', c: '#8a5a00', dot: '#d99200', label: 'Under Review' },
+      Uploaded: { bg: '#e7e9f2', c: '#3a4a8a', dot: '#5a6cc4', label: 'Uploaded' },
+      Paid: { bg: '#dcf3e4', c: '#1b6b3a', dot: '#2e9e58', label: 'Paid' },
+      active: { bg: '#dcf3e4', c: '#1b6b3a', dot: '#2e9e58', label: 'Active' },
+      suspended: { bg: '#fbe2e2', c: '#a01f1f', dot: '#d64545', label: 'Suspended' },
+    };
+    return m[status] || m.pending;
+  }
+  badgeStyle(status) {
+    const b = this.badge(status);
+    return `display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;background:${b.bg};color:${b.c};`;
+  }
+  badgeDot(status) { const b = this.badge(status); return `width:6px;height:6px;border-radius:50%;background:${b.dot};`; }
+
+  pushAudit(actor, action, target) {
+    const ts = '2026-07-01 ' + new Date().toTimeString().slice(0, 5);
+    this.setState(s => ({ audit: [{ actor, action, target, ts }, ...s.audit] }));
+  }
+  showToast(msg) {
+    if (this._t) clearTimeout(this._t);
+    this.setState({ toast: msg });
+    this._t = setTimeout(() => this.setState({ toast: null }), 2800);
+  }
+
+  // ---------- auth / nav ----------
+  doLogin = () => this.setState({ loggedIn: true, screen: 'dashboard' });
+  doLogout = () => this.setState({ loggedIn: false });
+  togglePortal = () => this.setState(s => ({ portal: s.portal === 'vendor' ? 'admin' : 'vendor', screen: 'dashboard' }));
+  goTo = (k) => () => this.setState({ screen: k, detail: null });
+
+  bind(key, field) { return (e) => this.setState(s => ({ [key]: { ...s[key], [field]: e.target.value } })); }
+
+  // ---------- vendor: reorders ----------
+  openReorderForm = () => this.setState({ reorderForm: { sku: '', product: '', qty: '', notes: '' } });
+  closeReorderForm = () => this.setState({ reorderForm: null });
+  submitReorder = () => {
+    const f = this.state.reorderForm;
+    if (!f.sku || !f.product || !f.qty) { this.showToast('Please fill SKU, product and quantity'); return; }
+    const id = 'r' + Date.now();
+    this.setState(s => ({
+      reorders: [{ id, vendor: this.cur, sku: f.sku, product: f.product, qty: +f.qty, status: 'pending', date: '2026-07-01', notes: '' }, ...s.reorders],
+      reorderForm: null,
+    }));
+    this.pushAudit(this.vendorName(this.cur), 'submitted reorder', f.sku);
+    this.showToast('Reorder request submitted');
+  };
+  setVFilter = (v) => () => this.setState({ vFilterStatus: v });
+
+  // ---------- vendor: payments ----------
+  openPayAction = (id, kind) => () => this.setState({ payAction: { id, kind } });
+  closePayAction = () => this.setState({ payAction: null });
+  confirmPayAction = () => {
+    const { id, kind } = this.state.payAction;
+    const p = this.state.payments.find(x => x.id === id);
+    const newStatus = kind === 'confirm' ? 'Confirmed' : 'Disputed';
+    this.setState(s => ({ payments: s.payments.map(x => x.id === id ? { ...x, status: newStatus } : x), payAction: null }));
+    this.pushAudit(this.vendorName(this.cur), kind === 'confirm' ? 'confirmed payment' : 'disputed payment', p.ref);
+    this.showToast(kind === 'confirm' ? 'Payment receipt confirmed' : 'Payment disputed');
+  };
+
+  // ---------- vendor: incoming demands ----------
+  rejectReasons = ['Out of stock', 'Product discontinued', 'Cost price too low', 'Insufficient production capacity', 'Lead time too short', 'Design/material unavailable', 'Other (free text)'];
+  setSubtab = (t) => () => this.setState({ reorderSubtab: t });
+  subTabStyle(active) { return `display:inline-flex;align-items:center;gap:7px;padding:7px 15px;border-radius:8px;border:none;cursor:pointer;font-size:13.5px;font-weight:600;background:${active ? '#fff' : 'transparent'};color:${active ? '#1c1c22' : '#6b6b76'};box-shadow:${active ? '0 1px 3px rgba(0,0,0,0.09)' : 'none'};`; }
+  subTabCountStyle(active) { return `background:${active ? '#f3e9ef' : '#e2e0e4'};color:${active ? '#6c2a57' : '#8a8a94'};font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;`; }
+  openAccept = (id) => () => { const d = this.state.demands.find(x => x.id === id); this.setState({ acceptModal: { id, fulfillQty: (d.status === 'accepted' || d.status === 'partial') ? String(d.fulfillQty) : '', remark: d.remark || '' } }); };
+  closeAccept = () => this.setState({ acceptModal: null });
+  submitAccept = () => {
+    const m = this.state.acceptModal; const d = this.state.demands.find(x => x.id === m.id); const req = d.qty; const q = +m.fulfillQty;
+    if (m.fulfillQty === '' || isNaN(q) || q < 1) { this.showToast('Enter how many you can fulfill'); return; }
+    if (q > req) { this.showToast('Cannot exceed the requested quantity (' + req + ')'); return; }
+    const partial = q < req;
+    if (partial && !m.remark.trim()) { this.showToast('Add a remark for the short quantity'); return; }
+    this.setState(st => ({ demands: st.demands.map(x => x.id === m.id ? { ...x, status: partial ? 'partial' : 'accepted', fulfillQty: q, remark: partial ? m.remark.trim() : '', reason: '' } : x), acceptModal: null, reorderSubtab: 'updates' }));
+    this.pushAudit(this.vendorName(this.cur), partial ? 'partially accepted reorder' : 'accepted reorder', d.sku);
+    this.showToast(partial ? 'Accepted (partial) — moved to Updates' : 'Accepted — moved to Updates');
+  };
+  openReject = (id) => () => { const d = this.state.demands.find(x => x.id === id); const known = this.rejectReasons.includes(d.reason); this.setState({ rejectModal: { id, reason: d.status === 'rejected' ? (known ? d.reason : 'Other (free text)') : '', other: (d.status === 'rejected' && !known) ? d.reason : '' } }); };
+  closeReject = () => this.setState({ rejectModal: null });
+  submitReject = () => {
+    const m = this.state.rejectModal; const d = this.state.demands.find(x => x.id === m.id);
+    if (!m.reason) { this.showToast('Select a reason for rejecting'); return; }
+    if (m.reason === 'Other (free text)' && !m.other.trim()) { this.showToast('Describe the reason'); return; }
+    const reason = m.reason === 'Other (free text)' ? m.other.trim() : m.reason;
+    this.setState(st => ({ demands: st.demands.map(x => x.id === m.id ? { ...x, status: 'rejected', reason, fulfillQty: null, remark: '' } : x), rejectModal: null, reorderSubtab: 'updates' }));
+    this.pushAudit(this.vendorName(this.cur), 'rejected reorder', d.sku);
+    this.showToast('Rejected — moved to Updates');
+  };
+  editDemand = (id) => () => { const d = this.state.demands.find(x => x.id === id); if (d.status === 'rejected') { this.openReject(id)(); } else { this.openAccept(id)(); } };
+  submitDemand = (id) => () => { const d = this.state.demands.find(x => x.id === id); this.setState(st => ({ demands: st.demands.map(x => x.id === id ? { ...x, locked: true } : x) })); this.pushAudit(this.vendorName(this.cur), 'submitted reorder response', d.sku); this.showToast('Response submitted — row locked'); };
+
+  // ---------- profile ----------
+  editProfile = () => { const v = this.state.vendors.find(x => x.id === this.cur); this.setState({ profileForm: { phone: '+91 98200 44112', address: '14 Linking Rd, Bandra West, Mumbai 400050', gst: '27AAECM1234F1Z5', contact: 'Ananya Kapoor' } }); };
+  saveProfile = () => { this.setState({ profileForm: null }); this.showToast('Profile updated'); };
+
+  // ---------- vendor: invoices ----------
+  pickFile = (id) => (e) => { const f = e.target.files && e.target.files[0]; if (f) this.setState(s => ({ pendingFiles: { ...s.pendingFiles, [id]: f.name } })); };
+  clearPick = (id) => () => this.setState(s => { const p = { ...s.pendingFiles }; delete p[id]; return { pendingFiles: p }; });
+  submitPO = (id) => () => {
+    const name = this.state.pendingFiles[id];
+    if (!name) { this.showToast('Attach the invoice PDF first'); return; }
+    const po = this.state.invoices.find(x => x.id === id);
+    this.setState(s => { const p = { ...s.pendingFiles }; delete p[id]; return { invoices: s.invoices.map(x => x.id === id ? { ...x, fileName: name, status: 'Uploaded', date: '2026-07-01' } : x), pendingFiles: p }; });
+    this.pushAudit(this.vendorName(this.cur), 'submitted invoice', po.po);
+    this.showToast('Invoice submitted');
+  };
+
+  // ---------- admin: reorders ----------
+  setAReStatus = (v) => () => this.setState({ aReorderStatus: v });
+  setAReVendor = (e) => this.setState({ aReorderVendor: e.target.value });
+  openDetail = (id) => () => { const r = this.state.reorders.find(x => x.id === id); this.setState({ detail: id, detailNotes: r.notes || '' }); };
+  closeDetail = () => this.setState({ detail: null });
+  decideReorder = (decision) => () => {
+    const id = this.state.detail;
+    const r = this.state.reorders.find(x => x.id === id);
+    this.setState(s => ({ reorders: s.reorders.map(x => x.id === id ? { ...x, status: decision, notes: s.detailNotes } : x), detail: null }));
+    this.pushAudit('Priya (Admin)', decision === 'approved' ? 'approved reorder' : 'rejected reorder', r.sku);
+    this.showToast(decision === 'approved' ? 'Reorder approved' : 'Reorder rejected');
+  };
+
+  // ---------- admin: payments ----------
+  setAPayStatus = (v) => () => this.setState({ aPayStatus: v });
+  setAPayVendor = (e) => this.setState({ aPayVendor: e.target.value });
+  openRecordPay = () => this.setState({ recordPay: { vendor: '', ref: '', amount: '', date: '2026-07-01', utr: '' } });
+  closeRecordPay = () => this.setState({ recordPay: null });
+  submitRecordPay = () => {
+    const f = this.state.recordPay;
+    if (!f.vendor || !f.ref || !f.amount) { this.showToast('Vendor, invoice ref and amount are required'); return; }
+    this.setState(s => ({ payments: [{ id: 'p' + Date.now(), ref: f.ref, vendor: f.vendor, amount: +f.amount, date: f.date, utr: f.utr || '—', status: 'Pending Confirmation' }, ...s.payments], recordPay: null }));
+    this.pushAudit('Rahul (Admin)', 'recorded payment', f.ref);
+    this.showToast('Payment recorded');
+  };
+  openResolve = (id) => () => this.setState({ resolvePay: { id }, resolveNote: '' });
+  closeResolve = () => this.setState({ resolvePay: null });
+  submitResolve = () => {
+    const { id } = this.state.resolvePay;
+    const p = this.state.payments.find(x => x.id === id);
+    this.setState(s => ({ payments: s.payments.map(x => x.id === id ? { ...x, status: 'Confirmed' } : x), resolvePay: null }));
+    this.pushAudit('Rahul (Admin)', 'resolved dispute on', p.ref);
+    this.showToast('Dispute resolved');
+  };
+
+  // ---------- admin: vendors ----------
+  openAddVendor = () => this.setState({ vendorForm: { name: '', email: '', status: 'active' } });
+  openEditVendor = (id) => () => { const v = this.state.vendors.find(x => x.id === id); this.setState({ vendorForm: { ...v } }); };
+  closeVendorForm = () => this.setState({ vendorForm: null });
+  submitVendor = () => {
+    const f = this.state.vendorForm;
+    if (!f.name || !f.email) { this.showToast('Name and email are required'); return; }
+    if (f.id) {
+      this.setState(s => ({ vendors: s.vendors.map(v => v.id === f.id ? { ...f } : v), vendorForm: null }));
+      this.pushAudit('Rahul (Admin)', 'updated vendor', f.name);
+      this.showToast('Vendor updated');
+    } else {
+      this.setState(s => ({ vendors: [...s.vendors, { ...f, id: 'v' + Date.now() }], vendorForm: null }));
+      this.pushAudit('Rahul (Admin)', 'added vendor', f.name);
+      this.showToast('Vendor added');
+    }
+  };
+  toggleVendor = (id) => () => {
+    const v = this.state.vendors.find(x => x.id === id);
+    const ns = v.status === 'active' ? 'suspended' : 'active';
+    this.setState(s => ({ vendors: s.vendors.map(x => x.id === id ? { ...x, status: ns } : x) }));
+    this.pushAudit('Rahul (Admin)', ns === 'suspended' ? 'suspended vendor' : 'reactivated vendor', v.name);
+    this.showToast(ns === 'suspended' ? 'Vendor suspended' : 'Vendor reactivated');
+  };
+  setAuditActor = (e) => this.setState({ auditActor: e.target.value });
+
+  navItem(key, label) {
+    const active = this.state.screen === key;
+    const itemStyle = `display:flex;align-items:center;gap:11px;padding:8px 12px;border-radius:9px;font-size:14px;font-weight:${active ? 600 : 500};cursor:pointer;color:${active ? '#6c2a57' : '#52525b'};background:${active ? '#f3e9ef' : 'transparent'};`;
+    const dotStyle = `width:7px;height:7px;border-radius:50%;flex-shrink:0;background:${active ? '#6c2a57' : '#c4c4ce'};`;
+    return { key, label, active, itemStyle, dotStyle, onClick: this.goTo(key) };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const isVendor = s.portal === 'vendor';
+    const showApp = s.loggedIn;
+    const titles = { dashboard: 'Dashboard', reorders: 'Reorder Requests', payments: 'Payments', profile: 'Profile', vendors: 'Vendors', audit: 'Audit Log' };
+    const navKeys = isVendor ? ['dashboard', 'reorders', 'payments', 'profile'] : ['dashboard', 'reorders', 'payments', 'vendors', 'audit'];
+    const navItems = navKeys.map(k => this.navItem(k, titles[k]));
+
+    const userName = isVendor ? 'Ananya Kapoor' : 'Priya Menon';
+    const userEmail = isVendor ? 'ananya@anokhi.in' : 'priya@mirraw.com';
+    const userInitials = isVendor ? 'AK' : 'PM';
+
+    // ----- view models -----
+    const mapReorder = (r) => ({ ...r, vendorName: this.vendorName(r.vendor), qtyLabel: r.qty.toLocaleString('en-IN'), dateLabel: this.fmtDate(r.date), notesLabel: r.notes || '—', badgeStyle: this.badgeStyle(r.status), badgeDot: this.badgeDot(r.status), badgeLabel: this.badge(r.status).label });
+    const mapPay = (p) => ({ ...p, vendorName: this.vendorName(p.vendor), amountLabel: this.money(p.amount), dateLabel: this.fmtDate(p.date), badgeStyle: this.badgeStyle(p.status), badgeDot: this.badgeDot(p.status), badgeLabel: this.badge(p.status).label, isPending: p.status === 'Pending Confirmation', isDisputed: p.status === 'Disputed', onConfirm: this.openPayAction(p.id, 'confirm'), onDispute: this.openPayAction(p.id, 'dispute'), onResolve: this.openResolve(p.id) });
+
+    // vendor lists
+    const vAllReorders = s.reorders.filter(r => r.vendor === this.cur);
+    const vReorders = vAllReorders.filter(r => s.vFilterStatus === 'all' || r.status === s.vFilterStatus).map(mapReorder);
+    const vPayments = s.payments.filter(p => p.vendor === this.cur).map(mapPay);
+    // admin lists
+    const aReorders = s.reorders.filter(r => (s.aReorderStatus === 'all' || r.status === s.aReorderStatus) && (s.aReorderVendor === 'all' || r.vendor === s.aReorderVendor)).map(r => ({ ...mapReorder(r), onClick: this.openDetail(r.id) }));
+    const aPayments = s.payments.filter(p => (s.aPayStatus === 'all' || p.status === s.aPayStatus) && (s.aPayVendor === 'all' || p.vendor === s.aPayVendor)).map(mapPay);
+
+    const filterChip = (label, val, cur, on) => ({ label, active: val === cur, onClick: on, style: `padding:6px 13px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid ${val === cur ? '#6c2a57' : '#e4e4ea'};background:${val === cur ? '#6c2a57' : '#fff'};color:${val === cur ? '#fff' : '#52525b'};` });
+    const vFilters = [ filterChip('All', 'all', s.vFilterStatus, this.setVFilter('all')), filterChip('Pending', 'pending', s.vFilterStatus, this.setVFilter('pending')), filterChip('Approved', 'approved', s.vFilterStatus, this.setVFilter('approved')), filterChip('Rejected', 'rejected', s.vFilterStatus, this.setVFilter('rejected')) ];
+    const aReFilters = [ filterChip('All', 'all', s.aReorderStatus, this.setAReStatus('all')), filterChip('Pending', 'pending', s.aReorderStatus, this.setAReStatus('pending')), filterChip('Approved', 'approved', s.aReorderStatus, this.setAReStatus('approved')), filterChip('Rejected', 'rejected', s.aReorderStatus, this.setAReStatus('rejected')) ];
+    const aPayFilters = [ filterChip('All', 'all', s.aPayStatus, this.setAPayStatus('all')), filterChip('Pending', 'Pending Confirmation', s.aPayStatus, this.setAPayStatus('Pending Confirmation')), filterChip('Confirmed', 'Confirmed', s.aPayStatus, this.setAPayStatus('Confirmed')), filterChip('Disputed', 'Disputed', s.aPayStatus, this.setAPayStatus('Disputed')) ];
+
+    // dashboard cards
+    const cardTone = { amber: '#d99200', green: '#2e9e58', red: '#d64545', plum: '#6c2a57' };
+    const mkCard = (label, value, tone, sub) => ({ label, value: String(value), tone: cardTone[tone], sub });
+    const vPend = vAllReorders.filter(r => r.status === 'pending').length;
+    const vAppr = vAllReorders.filter(r => r.status === 'approved').length;
+    const vPayPend = s.payments.filter(p => p.vendor === this.cur && p.status === 'Pending Confirmation').length;
+    const vConfMonth = s.payments.filter(p => p.vendor === this.cur && p.status === 'Confirmed' && p.date.startsWith('2026-06')).length;
+    const vCards = [ mkCard('Pending Reorders', vPend, 'amber', 'awaiting admin review'), mkCard('Approved Reorders', vAppr, 'green', 'in production'), mkCard('Pending Payments', vPayPend, 'amber', 'confirm receipt'), mkCard('Confirmed · This Month', vConfMonth, 'green', 'June 2026') ];
+
+    const aCards = [ mkCard('Total Vendors', s.vendors.length, 'plum', s.vendors.filter(v => v.status === 'active').length + ' active'), mkCard('Pending Reorders', s.reorders.filter(r => r.status === 'pending').length, 'amber', 'need decision'), mkCard('Pending Payments', s.payments.filter(p => p.status === 'Pending Confirmation').length, 'amber', 'awaiting vendor'), mkCard('Disputed Payments', s.payments.filter(p => p.status === 'Disputed').length, 'red', 'need resolution') ];
+
+    // vendor activity
+    const vActivity = s.audit.filter(a => a.actor === this.vendorName(this.cur) || (a.actor.includes('Admin') && (vAllReorders.some(r => r.sku === a.target) || s.payments.some(p => p.vendor === this.cur && p.ref === a.target)))).slice(0, 6).map(a => ({ text: a.actor + ' ' + a.action, target: a.target, ts: a.ts, dot: a.actor.includes('Admin') ? '#6c2a57' : '#2e9e58' }));
+
+    // admin attention
+    const attn = [];
+    s.reorders.filter(r => r.status === 'pending').slice(0, 3).forEach(r => attn.push({ tag: 'Reorder', tagBg: '#f3e9ef', tagC: '#6c2a57', title: r.sku + ' · ' + r.product, meta: this.vendorName(r.vendor) + ' · ' + r.qty + ' units', onClick: this.goTo('reorders') }));
+    s.payments.filter(p => p.status === 'Disputed').forEach(p => attn.push({ tag: 'Dispute', tagBg: '#fbe2e2', tagC: '#a01f1f', title: p.ref + ' · ' + this.money(p.amount), meta: this.vendorName(p.vendor), onClick: this.goTo('payments') }));
+
+    // detail panel
+    const detailR = s.detail ? mapReorder(s.reorders.find(r => r.id === s.detail)) : null;
+    const payActionObj = s.payAction ? { ...s.payAction, pay: mapPay(s.payments.find(p => p.id === s.payAction.id)), isConfirm: s.payAction.kind === 'confirm' } : null;
+    const resolveObj = s.resolvePay ? mapPay(s.payments.find(p => p.id === s.resolvePay.id)) : null;
+
+    const vendorOptions = s.vendors.map(v => ({ id: v.id, name: v.name }));
+    const vendorRows = s.vendors.map(v => ({ ...v, initials: v.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(), badgeStyle: this.badgeStyle(v.status), badgeDot: this.badgeDot(v.status), badgeLabel: this.badge(v.status).label, isActive: v.status === 'active', isSuspended: v.status === 'suspended', onEdit: this.openEditVendor(v.id), onToggle: this.toggleVendor(v.id) }));
+
+    const actors = [{ val: 'all', label: 'All actors' }, ...Array.from(new Set(s.audit.map(a => a.actor))).map(a => ({ val: a, label: a }))];
+    const auditRows = s.audit.filter(a => s.auditActor === 'all' || a.actor === s.auditActor).map(a => ({ ...a, isAdmin: a.actor.includes('Admin'), initials: a.actor.split(' ')[0].slice(0, 2).toUpperCase() }));
+
+    // ----- vendor incoming demands -----
+    const imgStyle = 'width:64px;height:64px;border-radius:10px;background:repeating-linear-gradient(135deg,#f2ecef,#f2ecef 6px,#e6dce4 6px,#e6dce4 12px);border:1px solid #e8e0e5;flex-shrink:0;cursor:zoom-in;';
+    const mapDemand = (d) => {
+      const detail = d.status === 'rejected' ? d.reason : (d.status === 'partial' ? d.remark : (d.status === 'accepted' ? 'Full quantity confirmed' : '—'));
+      const fulfill = (d.status === 'accepted' || d.status === 'partial') ? (d.fulfillQty + ' / ' + d.qty) : '—';
+      return { ...d, imgStyle, costLabel: '₹' + d.cost.toLocaleString('en-IN'), qtyLabel: d.qty.toLocaleString('en-IN'), badgeStyle: this.badgeStyle(d.status), badgeDot: this.badgeDot(d.status), badgeLabel: this.badge(d.status).label, detailLabel: detail, fulfillLabel: fulfill, isLocked: !!d.locked, editable: !d.locked, onAccept: this.openAccept(d.id), onReject: this.openReject(d.id), onEdit: this.editDemand(d.id), onSubmit: this.submitDemand(d.id) };
+    };
+    const newDemands = s.demands.filter(d => d.status === 'new').map(mapDemand);
+    const updDemands = s.demands.filter(d => d.status !== 'new').map(mapDemand);
+    const am = s.acceptModal ? s.demands.find(d => d.id === s.acceptModal.id) : null;
+    const areq = am ? am.qty : 0;
+    const aqn = (s.acceptModal && s.acceptModal.fulfillQty !== '') ? +s.acceptModal.fulfillQty : NaN;
+    const rm = s.rejectModal ? s.demands.find(d => d.id === s.rejectModal.id) : null;
+
+    // ----- vendor invoices -----
+    const submitStyleBase = 'padding:7px 16px;border-radius:8px;border:none;font-size:13px;font-weight:600;color:#fff;';
+    const awaiting = s.invoices.filter(p => p.status === 'Awaiting Invoice').map(p => {
+      const pending = s.pendingFiles[p.id];
+      return { ...p, qtyLabel: p.qty.toLocaleString('en-IN'), amountLabel: this.money(p.amount), hasPending: !!pending, noPending: !pending, pendingName: pending || '', onPick: this.pickFile(p.id), clearPick: this.clearPick(p.id), onSubmit: this.submitPO(p.id), submitStyle: submitStyleBase + (pending ? 'background:#6c2a57;cursor:pointer;' : 'background:#d9cdd4;cursor:not-allowed;') };
+    });
+    const submitted = s.invoices.filter(p => p.status !== 'Awaiting Invoice').map(p => ({ ...p, qtyLabel: p.qty.toLocaleString('en-IN'), amountLabel: this.money(p.amount), dateLabel: this.fmtDate(p.date), badgeStyle: this.badgeStyle(p.status), badgeDot: this.badgeDot(p.status), badgeLabel: this.badge(p.status).label }));
+
+    return {
+      showLogin: !s.loggedIn, showApp,
+      isVendor, isAdmin: !isVendor,
+      portalLabel: isVendor ? 'Vendor Portal' : 'Admin Portal',
+      portalSwitchLabel: isVendor ? 'Switch to Admin Portal →' : 'Switch to Vendor Portal →',
+      loginTitle: isVendor ? 'Vendor Portal' : 'Admin Portal',
+      loginTagline: isVendor ? 'Manage your reorders and payment confirmations with Mirraw.' : 'Internal operations console for Mirraw marketplace.',
+      doLogin: this.doLogin, doLogout: this.doLogout, togglePortal: this.togglePortal,
+      navItems, userName, userEmail, userInitials,
+      pageTitle: titles[s.screen],
+      isDashboard: s.screen === 'dashboard', isReorders: s.screen === 'reorders', isPayments: s.screen === 'payments', isProfile: s.screen === 'profile', isVendors: s.screen === 'vendors', isAudit: s.screen === 'audit',
+      toast: s.toast,
+      // dashboards
+      vCards, aCards, vActivity, hasActivity: vActivity.length > 0, attn, hasAttn: attn.length > 0,
+      // vendor incoming demands
+      reorderSubtab: s.reorderSubtab, isSubNew: s.reorderSubtab === 'new', isSubUpd: s.reorderSubtab === 'updates',
+      subTabNew: this.setSubtab('new'), subTabUpd: this.setSubtab('updates'),
+      subTabNewStyle: this.subTabStyle(s.reorderSubtab === 'new'), subTabUpdStyle: this.subTabStyle(s.reorderSubtab === 'updates'),
+      subTabNewCountStyle: this.subTabCountStyle(s.reorderSubtab === 'new'), subTabUpdCountStyle: this.subTabCountStyle(s.reorderSubtab === 'updates'),
+      newCount: newDemands.length, updCount: updDemands.length,
+      newDemands, newEmpty: newDemands.length === 0, updDemands, updEmpty: updDemands.length === 0,
+      showAccept: !!s.acceptModal, acceptModal: s.acceptModal, closeAccept: this.closeAccept, onAcceptQty: this.bind('acceptModal', 'fulfillQty'), onAcceptRemark: this.bind('acceptModal', 'remark'), submitAccept: this.submitAccept,
+      acceptSku: am ? am.sku : '', acceptType: am ? am.type : '', acceptReq: areq.toLocaleString('en-IN'),
+      acceptFull: !isNaN(aqn) && aqn === areq, acceptPartial: !isNaN(aqn) && aqn > 0 && aqn < areq, acceptShort: (areq - (isNaN(aqn) ? 0 : aqn)),
+      showReject: !!s.rejectModal, rejectModal: s.rejectModal, closeReject: this.closeReject, onRejectReason: this.bind('rejectModal', 'reason'), onRejectOther: this.bind('rejectModal', 'other'), submitReject: this.submitReject,
+      rejectSku: rm ? rm.sku : '', rejectType: rm ? rm.type : '', rejectReasons: this.rejectReasons, rejectOther: !!(s.rejectModal && s.rejectModal.reason === 'Other (free text)'),
+      // vendor reorders (legacy)
+      vReorders, vReordersEmpty: vReorders.length === 0, vFilters, openReorderForm: this.openReorderForm,
+      reorderForm: s.reorderForm, showReorderForm: !!s.reorderForm, closeReorderForm: this.closeReorderForm, submitReorder: this.submitReorder,
+      onReSku: this.bind('reorderForm', 'sku'), onReProduct: this.bind('reorderForm', 'product'), onReQty: this.bind('reorderForm', 'qty'), onReNotes: this.bind('reorderForm', 'notes'),
+      // vendor invoices
+      awaiting, awaitingEmpty: awaiting.length === 0,
+      invoices: submitted, invoicesEmpty: submitted.length === 0,
+      // vendor payments (legacy)
+      vPayments, vPaymentsEmpty: vPayments.length === 0,
+      payActionObj, showPayAction: !!payActionObj, closePayAction: this.closePayAction, confirmPayAction: this.confirmPayAction,
+      stop: (e) => e.stopPropagation(),
+      payActionTitle: payActionObj ? (payActionObj.isConfirm ? 'Confirm Payment Receipt' : 'Dispute Payment') : '',
+      payActionBody: payActionObj ? (payActionObj.isConfirm ? 'Confirm that you have received this payment in full. This will notify Mirraw and update your records.' : 'Flag this payment as not received or incorrect. Mirraw will be notified to investigate.') : '',
+      payActionBtn: payActionObj ? (payActionObj.isConfirm ? 'Confirm Receipt' : 'Raise Dispute') : '',
+      payActionBtnStyle: payActionObj ? (payActionObj.isConfirm ? 'padding:9px 18px;border-radius:9px;border:none;background:#1b6b3a;color:#fff;font-size:14px;font-weight:600;cursor:pointer;' : 'padding:9px 18px;border-radius:9px;border:none;background:#a01f1f;color:#fff;font-size:14px;font-weight:600;cursor:pointer;') : '',
+      // profile
+      profileForm: s.profileForm, editing: !!s.profileForm, editProfile: this.editProfile, saveProfile: this.saveProfile,
+      onPfPhone: this.bind('profileForm', 'phone'), onPfAddress: this.bind('profileForm', 'address'), onPfContact: this.bind('profileForm', 'contact'),
+      profileName: this.vendorName(this.cur), profileEmail: 'ananya@anokhi.in', isProfileView: !s.profileForm,
+      // admin reorders
+      aReorders, aReordersEmpty: aReorders.length === 0, aReFilters, aReorderVendor: s.aReorderVendor, setAReVendor: this.setAReVendor, vendorOptions,
+      detailR, showDetail: !!detailR, closeDetail: this.closeDetail, detailNotes: s.detailNotes, onDetailNotes: (e) => this.setState({ detailNotes: e.target.value }), approve: this.decideReorder('approved'), reject: this.decideReorder('rejected'),
+      // admin payments
+      aPayments, aPaymentsEmpty: aPayments.length === 0, aPayFilters, aPayVendor: s.aPayVendor, setAPayVendor: this.setAPayVendor,
+      openRecordPay: this.openRecordPay, recordPay: s.recordPay, showRecordPay: !!s.recordPay, closeRecordPay: this.closeRecordPay, submitRecordPay: this.submitRecordPay,
+      onRpVendor: this.bind('recordPay', 'vendor'), onRpRef: this.bind('recordPay', 'ref'), onRpAmount: this.bind('recordPay', 'amount'), onRpDate: this.bind('recordPay', 'date'), onRpUtr: this.bind('recordPay', 'utr'),
+      resolveObj, showResolve: !!resolveObj, closeResolve: this.closeResolve, resolveNote: s.resolveNote, onResolveNote: (e) => this.setState({ resolveNote: e.target.value }), submitResolve: this.submitResolve,
+      // vendors
+      vendorRows, openAddVendor: this.openAddVendor, vendorForm: s.vendorForm, showVendorForm: !!s.vendorForm, closeVendorForm: this.closeVendorForm, submitVendor: this.submitVendor,
+      onVfName: this.bind('vendorForm', 'name'), onVfEmail: this.bind('vendorForm', 'email'), vendorFormEditing: !!(s.vendorForm && s.vendorForm.id), vendorFormTitle: (s.vendorForm && s.vendorForm.id) ? 'Edit Vendor' : 'Add Vendor',
+      onVfStatus: this.bind('vendorForm', 'status'), vendorFormStatus: s.vendorForm ? s.vendorForm.status : 'active',
+      // audit
+      auditRows, auditEmpty: auditRows.length === 0, actors, auditActor: s.auditActor, setAuditActor: this.setAuditActor,
+    };
+  }
+}
+</script>
+</body>
+</html>
