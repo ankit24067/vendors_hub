@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mirraw Vendor Hub</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Instrument Sans', system-ui, sans-serif; color: #1c1c22; min-height: 100vh; background: #f7f7f8; -webkit-font-smoothing: antialiased; }
+  ::selection { background: #efd9e6; }
+  input, textarea, select, button { font-family: inherit; }
+  input:focus, textarea:focus, select:focus { border-color: #6c2a57 !important; outline: none; }
+  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes panelIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #d9d9df; border-radius: 8px; border: 3px solid #f7f7f8; }
+  /* hover states (style-hover in the design file) */
+  .hv-login:hover { background: #faf9fa !important; border-color: #c9c9d1 !important; }
+  .hv-nav:hover { background: #f3f0f2 !important; }
+  .hv-nav-out:hover { background: #f3f0f2 !important; color: #1c1c22 !important; }
+  .hv-row:hover { background: #faf9fa !important; }
+  .hv-grey:hover { background: #f6f6f8 !important; }
+  .hv-plum:hover { background: #f3e9ef !important; }
+  .hv-primary:hover { background: #571f44 !important; }
+  .hv-green:hover { background: #c9ecd5 !important; }
+  .hv-darkgreen:hover { background: #155a31 !important; }
+  .hv-red:hover { background: #fbe2e2 !important; }
+  .hv-darkred:hover { background: #851919 !important; }
+  .hv-upload:hover { background: #f6eef2 !important; border-color: #6c2a57 !important; }
+  .hv-x:hover { color: #1c1c22 !important; }
+  .hv-close:hover { background: #ebebef !important; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="toast-root"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
