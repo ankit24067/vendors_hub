@@ -7,6 +7,19 @@ read-write token exists. Same interface as SheetsStore.
 import time
 from datetime import datetime
 
+from werkzeug.security import check_password_hash, generate_password_hash
+
+# The one hard-coded master admin who can grant/revoke editor access.
+MASTER_ADMIN_EMAIL = "dhruti.vaghasiya@mirraw.com"
+ADMIN_DOMAIN = "mirraw.com"
+
+
+def image_formula(url):
+    """=IMAGE() so the thumbnail renders inside the sheet cell."""
+    if not url:
+        return ""
+    return '=IMAGE("' + str(url).replace('"', "") + '")'
+
 
 def _now_ts():
     return datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -84,6 +97,83 @@ class MockStore:
             {"id": "i5", "vendor": "v1", "po": "PO-2026-0388", "qty": 80, "amount": 86000, "fileName": "invoice-0388.pdf", "status": "Disputed", "date": "2026-05-28"},
         ]
 
+        # Credentials kept separate from vendor records so password hashes
+        # never reach the frontend. Seeded so you can sign in immediately;
+        # new vendors self-register via sign-up. (Mirror of vendor_db.)
+        self.vendor_creds = {"anokhi@textiles.in": generate_password_hash("vendor123")}
+
+        # admin_db mirror. role: master | editor | viewer.
+        # master grants editor; a fresh @mirraw.com signup is viewer (read-only).
+        self.admins = {
+            MASTER_ADMIN_EMAIL: {"hash": generate_password_hash("admin123"), "name": "Dhruti Vaghasiya", "role": "master", "granted_by": ""},
+            "priya@mirraw.com": {"hash": generate_password_hash("admin123"), "name": "Priya Menon", "role": "editor", "granted_by": MASTER_ADMIN_EMAIL},
+            "rahul@mirraw.com": {"hash": generate_password_hash("admin123"), "name": "Rahul Nair", "role": "viewer", "granted_by": ""},
+        }
+
+        # Response ledgers (mirror of the confirmed_reorder + outcome tabs).
+        self.confirmed_reorder = []
+        self.reorder_outcomes = {"accepted": [], "partial": [], "rejected": []}
+
+    # ── auth ─────────────────────────────────────────────────────────────
+    def register_vendor(self, name, email, password):
+        email = email.strip().lower()
+        existing = self.find_vendor_by_email(email)
+        if existing and email in self.vendor_creds:
+            return None, "An account with this email already exists. Try signing in."
+        if existing:
+            # Vendor was pre-created by an admin — claim the account.
+            self.vendor_creds[email] = generate_password_hash(password)
+            if name:
+                existing["name"] = name
+            return existing, None
+        vendor = self.add_vendor({"name": name, "email": email, "status": "active"})
+        self.vendor_creds[email] = generate_password_hash(password)
+        return vendor, None
+
+    def authenticate_vendor(self, email, password):
+        email = email.strip().lower()
+        h = self.vendor_creds.get(email)
+        if not h or not check_password_hash(h, password):
+            return None
+        return self.find_vendor_by_email(email)
+
+    def register_admin(self, name, email, password):
+        email = email.strip().lower()
+        if email in self.admins:
+            return None, "An account with this email already exists. Try signing in."
+        # A fresh Mirraw signup starts view-only until the master grants access.
+        self.admins[email] = {"hash": generate_password_hash(password), "name": name,
+                              "role": "viewer", "granted_by": ""}
+        return {"name": name, "email": email, "role": "viewer"}, None
+
+    def authenticate_admin(self, email, password):
+        a = self.admins.get(email.strip().lower())
+        if not a or not check_password_hash(a["hash"], password):
+            return None
+        return {"name": a["name"], "email": email.strip().lower(), "role": a.get("role", "viewer")}
+
+    def get_admin(self, email):
+        a = self.admins.get((email or "").strip().lower())
+        if not a:
+            return None
+        return {"name": a["name"], "email": email.strip().lower(), "role": a.get("role", "viewer")}
+
+    def get_admins(self):
+        """For the master's Access screen — never exposes password hashes."""
+        return [
+            {"email": e, "name": a["name"], "role": a.get("role", "viewer"), "granted_by": a.get("granted_by", "")}
+            for e, a in self.admins.items()
+        ]
+
+    def set_admin_role(self, email, role, granted_by):
+        email = email.strip().lower()
+        a = self.admins.get(email)
+        if not a or a.get("role") == "master":
+            return None  # master role is fixed
+        a["role"] = role
+        a["granted_by"] = granted_by if role == "editor" else ""
+        return {"email": email, "name": a["name"], "role": role}
+
     # ── vendors ──────────────────────────────────────────────────────────
     def get_vendors(self):
         return self.vendors
@@ -129,7 +219,30 @@ class MockStore:
         d = self.get_demand(did)
         if d:
             d.update({"status": status, "fulfillQty": fulfill_qty, "remark": remark, "reason": reason})
+            self._record_response(d)
         return d
+
+    def _record_response(self, d):
+        """Route a submitted response into confirmed_reorder + the right outcome
+        ledger, keyed by demand id so an edit updates in place and moves between
+        outcomes rather than duplicating. Mirrors what SheetsStore writes."""
+        vendor = self.get_vendor(d["vendor"])
+        rec = {
+            "image": image_formula(d.get("image")),
+            "demand_id": d["id"],
+            "vendor_name": vendor["name"] if vendor else d["vendor"],
+            "sku": d["sku"], "pid": d.get("pid", ""), "product_type": d.get("type", ""),
+            "required_qty": d["qty"], "fulfill_qty": d.get("fulfillQty") or "",
+            "outcome": d["status"], "remark": d.get("remark", ""), "reason": d.get("reason", ""),
+            "submitted_at": _now_ts(),
+        }
+        # drop any prior record for this demand across all ledgers
+        self.confirmed_reorder = [r for r in self.confirmed_reorder if r["demand_id"] != d["id"]]
+        for lst in self.reorder_outcomes.values():
+            lst[:] = [r for r in lst if r["demand_id"] != d["id"]]
+        self.confirmed_reorder.insert(0, rec)
+        if d["status"] in self.reorder_outcomes:
+            self.reorder_outcomes[d["status"]].insert(0, rec)
 
     def lock_demand(self, did):
         d = self.get_demand(did)

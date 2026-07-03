@@ -1,4 +1,5 @@
 flask
+PyJWT
 gspread
 google-auth
 google-auth-oauthlib

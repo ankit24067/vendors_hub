@@ -8,23 +8,17 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTHS_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-const LOGIN_ERRORS = {
-  admin_domain: 'Only Mirraw accounts can access the Admin Portal.',
-  vendor_unknown: 'This Google account is not a registered vendor. Contact the Mirraw admin to get onboarded.',
-  vendor_suspended: 'Your vendor account is suspended. Contact the Mirraw admin.',
-  oauth_failed: 'Google sign-in failed. Please try again.',
-  state_mismatch: 'Google sign-in failed. Please try again.',
-};
-
 const REJECT_REASONS = ['Out of stock', 'Product discontinued', 'Cost price too low', 'Insufficient production capacity', 'Lead time too short', 'Design/material unavailable', 'Other (free text)'];
 
 const App = {
   user: null,
   data: null,
+  csrf: null,
   loginError: null,
   pendingFiles: {},
   state: {
     portal: 'vendor',
+    authMode: 'signin',
     screen: 'dashboard',
     reorderSubtab: 'new',
     aReorderStatus: 'all', aReorderVendor: 'all',
@@ -42,33 +36,58 @@ const App = {
 
   // ── bootstrap ─────────────────────────────────────────────────────────
   async init() {
-    const params = new URLSearchParams(location.search);
-    const err = params.get('login_error');
-    if (err) { this.loginError = LOGIN_ERRORS[err] || LOGIN_ERRORS.oauth_failed; history.replaceState({}, '', '/'); }
-    const me = await (await fetch('/api/me')).json();
+    let me = await (await fetch('/api/me')).json();
+    // access token may have expired between visits — try one silent refresh
+    if (!me.user && await this.tryRefresh()) me = await (await fetch('/api/me')).json();
     this.user = me.user;
+    this.csrf = me.csrf;
     if (this.user) { this.state.portal = this.user.role; await this.refreshData(false); }
     this.render();
   },
 
+  // Silent access-token renewal via the rotating refresh cookie.
+  async tryRefresh() {
+    const r = await fetch('/auth/refresh', { method: 'POST' });
+    if (!r.ok) return false;
+    const j = await r.json().catch(() => ({}));
+    this.csrf = j.csrf || this.csrf;
+    if (j.user) this.user = j.user;
+    return true;
+  },
+
+  forceLogout() { this.user = null; this.data = null; this.csrf = null; this.render(); },
+
   async refreshData(rerender = true) {
-    const res = await fetch('/api/bootstrap');
-    if (res.status === 401) { this.user = null; this.data = null; this.render(); return; }
+    let res = await fetch('/api/bootstrap');
+    if (res.status === 401 && await this.tryRefresh()) res = await fetch('/api/bootstrap');
+    if (res.status === 401) { this.forceLogout(); return; }
     this.data = await res.json();
     if (rerender) this.render();
   },
 
   async api(path, opts = {}) {
-    if (opts.json !== undefined) {
-      opts.body = JSON.stringify(opts.json);
-      opts.headers = { 'Content-Type': 'application/json' };
-      delete opts.json;
+    let res = await this._send(path, opts);
+    if (res.status === 401) {
+      const j = await res.clone().json().catch(() => ({}));
+      if (j.code === 'expired' && await this.tryRefresh()) {
+        res = await this._send(path, opts);  // retry once with a fresh access token
+      } else {
+        this.forceLogout();
+        throw new Error('session');
+      }
     }
-    const res = await fetch(path, { method: 'POST', ...opts });
-    if (res.status === 401) { location.reload(); throw new Error('session'); }
     const j = await res.json().catch(() => ({}));
     if (!res.ok) { this.showToast(j.error || 'Something went wrong'); throw new Error(j.error || res.status); }
     return j;
+  },
+
+  _send(path, opts) {
+    // Rebuilt each attempt so a refresh-retry re-sends body + fresh CSRF header.
+    const headers = { ...(opts.headers || {}) };
+    let body = opts.body;
+    if (opts.json !== undefined) { body = JSON.stringify(opts.json); headers['Content-Type'] = 'application/json'; }
+    if (this.csrf) headers['X-CSRF-Token'] = this.csrf;
+    return fetch(path, { method: opts.method || 'POST', body, headers });
   },
 
   // ── helpers (from the design file) ────────────────────────────────────
@@ -126,10 +145,40 @@ const App = {
   set(patch) { Object.assign(this.state, patch); this.render(); },
 
   // ── auth / nav ────────────────────────────────────────────────────────
-  doLogin() { location.href = '/auth/google/login?portal=' + this.state.portal; },
-  async doLogout() { await this.api('/auth/logout'); this.user = null; this.data = null; this.render(); },
-  togglePortal() { this.set({ portal: this.state.portal === 'vendor' ? 'admin' : 'vendor' }); },
+  async doLogout() {
+    await fetch('/auth/logout', { method: 'POST', headers: this.csrf ? { 'X-CSRF-Token': this.csrf } : {} });
+    this.user = null; this.data = null; this.csrf = null; this.render();
+  },
+  togglePortal() { this.loginError = null; this.set({ portal: this.state.portal === 'vendor' ? 'admin' : 'vendor', authMode: 'signin' }); },
+  setAuthMode(m) { this.loginError = null; this.set({ authMode: m }); },
   goTo(k) { this.set({ screen: k, detailId: null }); },
+
+  async submitAuth() {
+    const isVendor = this.state.portal === 'vendor';
+    const signup = this.state.authMode === 'signup';
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const payload = { email, password };
+    let path;
+    if (signup) {
+      payload.name = document.getElementById('auth-name').value.trim();
+      path = isVendor ? '/auth/vendor/signup' : '/auth/admin/signup';
+    } else {
+      path = isVendor ? '/auth/vendor/login' : '/auth/admin/login';
+    }
+    this.loginError = null;
+    let res, j;
+    try {
+      res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      j = await res.json().catch(() => ({}));
+    } catch (e) { this.loginError = 'Network error — is the server running?'; this.render(); return; }
+    if (!res.ok) { this.loginError = j.error || 'Something went wrong'; this.render(); return; }
+    this.user = j.user;
+    this.csrf = j.csrf;
+    this.state.portal = this.user.role;
+    this.state.screen = 'dashboard';
+    await this.refreshData();
+  },
 
   // ── render root ───────────────────────────────────────────────────────
   render() {
@@ -141,10 +190,30 @@ const App = {
   // ── login screen ──────────────────────────────────────────────────────
   renderLogin() {
     const isVendor = this.state.portal === 'vendor';
+    const signup = this.state.authMode === 'signup';
     const loginTitle = isVendor ? 'Vendor Portal' : 'Admin Portal';
     const loginTagline = isVendor ? 'Manage your reorders and payment confirmations with Mirraw.' : 'Internal operations console for Mirraw marketplace.';
     const portalSwitchLabel = isVendor ? 'Switch to Admin Portal →' : 'Switch to Vendor Portal →';
-    const errHtml = this.loginError ? `<div style="width: 100%; text-align: center; font-size: 13px; color: #a01f1f; background: #fbe2e2; border-radius: 9px; padding: 10px 14px;">${esc(this.loginError)}</div>` : '';
+    const errHtml = this.loginError ? `<div style="width: 100%; box-sizing: border-box; text-align: center; font-size: 13px; color: #a01f1f; background: #fbe2e2; border-radius: 9px; padding: 10px 14px;">${esc(this.loginError)}</div>` : '';
+    const inputStyle = 'width: 100%; box-sizing: border-box; padding: 11px 13px; border-radius: 10px; border: 1px solid #dcdce2; font-size: 14px; outline: none;';
+    const label = (t) => `<div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 6px; font-weight: 500; align-self: flex-start;">${t}</div>`;
+    const field = (l, inner) => `<div style="width: 100%;">${label(l)}${inner}</div>`;
+
+    const nameLabel = isVendor ? 'Business / Vendor Name' : 'Full Name';
+    const namePlaceholder = isVendor ? 'e.g. Anokhi Textiles' : 'e.g. Priya Menon';
+    const nameField = signup ? field(nameLabel, `<input id="auth-name" placeholder="${namePlaceholder}" style="${inputStyle}" />`) : '';
+    const submitLabel = signup ? 'Create Account' : 'Sign In';
+    const footer = isVendor
+      ? 'Vendors sign in with their own email address.'
+      : 'Mirraw staff only. New accounts are view-only until the admin grants access.';
+
+    // both portals get a Sign In / Sign Up toggle
+    const modeToggle = `
+      <div style="width: 100%; display: inline-flex; padding: 4px; background: #f0eef0; border-radius: 11px;">
+        <button onclick="App.setAuthMode('signin')" style="flex:1;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;font-size:13.5px;font-weight:600;background:${!signup ? '#fff' : 'transparent'};color:${!signup ? '#1c1c22' : '#6b6b76'};box-shadow:${!signup ? '0 1px 3px rgba(0,0,0,0.09)' : 'none'};">Sign In</button>
+        <button onclick="App.setAuthMode('signup')" style="flex:1;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;font-size:13.5px;font-weight:600;background:${signup ? '#fff' : 'transparent'};color:${signup ? '#1c1c22' : '#6b6b76'};box-shadow:${signup ? '0 1px 3px rgba(0,0,0,0.09)' : 'none'};">Sign Up</button>
+      </div>`;
+
     return `
     <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: radial-gradient(120% 120% at 50% 0%, #ffffff 0%, #f4f1f3 60%, #efe9ed 100%);">
       <div style="width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; gap: 26px;">
@@ -155,17 +224,18 @@ const App = {
             <div style="font-size: 22px; font-weight: 600; margin-top: 2px;">Vendor Hub</div>
           </div>
         </div>
-        <div style="width: 100%; background: #fff; border: 1px solid #ebebef; border-radius: 16px; padding: 32px 30px; box-shadow: 0 12px 40px rgba(28,28,34,0.06); display: flex; flex-direction: column; align-items: center; gap: 22px;">
+        <div style="width: 100%; box-sizing: border-box; background: #fff; border: 1px solid #ebebef; border-radius: 16px; padding: 30px 30px; box-shadow: 0 12px 40px rgba(28,28,34,0.06); display: flex; flex-direction: column; align-items: center; gap: 18px;">
           <div style="text-align: center; display: flex; flex-direction: column; gap: 6px;">
             <div style="font-size: 19px; font-weight: 600;">${loginTitle}</div>
             <div style="font-size: 14px; color: #6b6b76; line-height: 1.5;">${loginTagline}</div>
           </div>
+          ${modeToggle}
           ${errHtml}
-          <button onclick="App.doLogin()" class="hv-login" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px 16px; border-radius: 10px; border: 1px solid #dcdce2; background: #fff; font-size: 15px; font-weight: 500; color: #1c1c22; cursor: pointer;">
-            <span style="width: 22px; height: 22px; border-radius: 50%; border: 2px solid #6c2a57; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: #6c2a57;">G</span>
-            Sign in with Google
-          </button>
-          <div style="font-size: 12px; color: #a2a2ac; text-align: center;">Restricted access · authorized accounts only</div>
+          ${nameField}
+          ${field('Email', `<input id="auth-email" type="email" placeholder="you@company.com" onkeydown="if(event.key==='Enter')App.submitAuth()" style="${inputStyle}" />`)}
+          ${field('Password', `<input id="auth-password" type="password" placeholder="${signup ? 'At least 6 characters' : 'Your password'}" onkeydown="if(event.key==='Enter')App.submitAuth()" style="${inputStyle}" />`)}
+          <button onclick="App.submitAuth()" class="hv-primary" style="width: 100%; padding: 12px 16px; border-radius: 10px; border: none; background: #6c2a57; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;">${submitLabel}</button>
+          <div style="font-size: 12px; color: #a2a2ac; text-align: center;">${footer}</div>
         </div>
         <button onclick="App.togglePortal()" style="background: none; border: none; color: #6c2a57; font-size: 13px; font-weight: 600; cursor: pointer;">${portalSwitchLabel}</button>
       </div>
@@ -173,12 +243,22 @@ const App = {
   },
 
   // ── app shell ─────────────────────────────────────────────────────────
+  canEdit() { return this.user.role === 'vendor' || !!this.user.canEdit; },
+
   renderApp() {
     const s = this.state;
     const isVendor = this.user.role === 'vendor';
-    const titles = { dashboard: 'Dashboard', reorders: 'Reorder Requests', payments: 'Payments', profile: 'Profile', vendors: 'Vendors', audit: 'Audit Log' };
-    const navKeys = isVendor ? ['dashboard', 'reorders', 'payments', 'profile'] : ['dashboard', 'reorders', 'payments', 'vendors', 'audit'];
+    const isMaster = !!this.user.isMaster;
+    const titles = { dashboard: 'Dashboard', reorders: 'Reorder Requests', payments: 'Payments', profile: 'Profile', vendors: 'Vendors', audit: 'Audit Log', access: 'Team Access' };
+    const navKeys = isVendor
+      ? ['dashboard', 'reorders', 'payments', 'profile']
+      : ['dashboard', 'reorders', 'payments', 'vendors', 'audit', ...(isMaster ? ['access'] : [])];
     const portalLabel = isVendor ? 'Vendor Portal' : 'Admin Portal';
+    const roleBadge = (!isVendor && this.user.adminRole) ? { master: 'Master', editor: 'Editor', viewer: 'View-only' }[this.user.adminRole] : null;
+    const viewOnlyBanner = (!isVendor && !this.canEdit()) ? `
+      <div style="max-width:1120px;margin-bottom:20px;display:flex;align-items:center;gap:10px;background:#fbf1e0;border:1px solid #f0dcb8;border-radius:11px;padding:12px 16px;font-size:13.5px;color:#8a5a00;">
+        <span style="font-size:15px;">👁️</span> You have <strong>view-only</strong> access. Ask the master admin to grant you edit rights to approve reorders, record payments, or manage vendors.
+      </div>` : '';
 
     const nav = navKeys.map((k) => {
       const active = s.screen === k;
@@ -195,6 +275,7 @@ const App = {
     else if (s.screen === 'profile') screen = this.renderProfile();
     else if (s.screen === 'vendors') screen = this.renderVendorsAdmin();
     else if (s.screen === 'audit') screen = this.renderAudit();
+    else if (s.screen === 'access') screen = this.renderAccess();
 
     return `
     <div style="display: flex; min-height: 100vh;">
@@ -222,11 +303,12 @@ const App = {
         <header style="height: 60px; flex-shrink: 0; background: rgba(251,251,252,0.86); backdrop-filter: blur(8px); border-bottom: 1px solid #ebebef; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; position: sticky; top: 0; z-index: 20;">
           <div style="font-size: 17px; font-weight: 600;">${titles[s.screen]}</div>
           <div style="display: flex; align-items: center; gap: 14px;">
+            ${roleBadge ? `<span style="font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: ${this.user.canEdit ? '#1b6b3a' : '#8a5a00'}; background: ${this.user.canEdit ? '#dcf3e4' : '#fbeed1'}; padding: 5px 10px; border-radius: 999px;">${roleBadge}</span>` : ''}
             <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #6c2a57; background: #f3e9ef; padding: 5px 11px; border-radius: 999px;">${portalLabel}</span>
             <div style="width: 32px; height: 32px; border-radius: 50%; background: #efe4eb; color: #6c2a57; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px;">${esc(this.user.initials)}</div>
           </div>
         </header>
-        <div style="flex: 1; padding: 30px 32px 60px; overflow-y: auto;">${screen}</div>
+        <div style="flex: 1; padding: 30px 32px 60px; overflow-y: auto;">${viewOnlyBanner}${screen}</div>
       </div>
     </div>
     ${this.renderModals()}`;
@@ -366,11 +448,9 @@ const App = {
       const rows = updDemands.map((d) => {
         const detail = d.status === 'rejected' ? d.reason : (d.status === 'partial' ? d.remark : (d.status === 'accepted' ? 'Full quantity confirmed' : '—'));
         const fulfill = (d.status === 'accepted' || d.status === 'partial') ? (d.fulfillQty + ' / ' + d.qty) : '—';
-        const action = d.locked
-          ? `<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #6c2a57;"><span style="width:15px;height:15px;border-radius:50%;background:#6c2a57;color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;">✓</span> Submitted</span>`
-          : `<div style="display: flex; gap: 8px;">
+        const action = `<div style="display: flex; gap: 8px; align-items: center;">
+              <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #1b6b3a;"><span style="width:14px;height:14px;border-radius:50%;background:#2e9e58;color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px;">✓</span> Submitted</span>
               <button onclick="App.editDemand('${d.id}')" class="hv-grey" style="padding: 6px 13px; border-radius: 8px; border: 1px solid #e4e4ea; background: #fff; color: #52525b; font-size: 13px; font-weight: 500; cursor: pointer;">Edit</button>
-              <button onclick="App.submitDemandRow('${d.id}')" class="hv-primary" style="padding: 6px 14px; border-radius: 8px; border: none; background: #6c2a57; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;">Submit</button>
             </div>`;
         return `
         <div style="display: grid; grid-template-columns: 80px 130px 1fr 130px 110px 1.3fr 190px; gap: 14px; min-width: 1000px; padding: 13px 20px; border-bottom: 1px solid #f4f4f6; align-items: center; font-size: 14px;">
@@ -545,7 +625,7 @@ const App = {
         <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8a8a94;">${esc(p.utr)}</div>
         <div>${this.badgeHtml(p.status)}</div>
         <div style="text-align: right;">
-          ${p.status === 'Disputed' ? `<button onclick="App.openResolve('${p.id}')" class="hv-plum" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #e4e4ea; background: #fff; color: #6c2a57; font-size: 13px; font-weight: 600; cursor: pointer;">Resolve</button>` : ''}
+          ${(p.status === 'Disputed' && this.canEdit()) ? `<button onclick="App.openResolve('${p.id}')" class="hv-plum" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #e4e4ea; background: #fff; color: #6c2a57; font-size: 13px; font-weight: 600; cursor: pointer;">Resolve</button>` : ''}
         </div>
       </div>`).join('');
 
@@ -557,9 +637,9 @@ const App = {
             <option value="all">All vendors</option>${vendorOpts}
           </select>
         </div>
-        <button onclick="App.set({showRecordPay:true})" class="hv-primary" style="display: flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: 9px; border: none; background: #6c2a57; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;">
+        ${this.canEdit() ? `<button onclick="App.set({showRecordPay:true})" class="hv-primary" style="display: flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: 9px; border: none; background: #6c2a57; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;">
           <span style="font-size: 17px; line-height: 1;">+</span> Record New Payment
-        </button>
+        </button>` : ''}
       </div>
       <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; overflow-x: auto;">
         <div style="display: grid; grid-template-columns: 1.2fr 140px 120px 120px 140px 160px 100px; gap: 12px; min-width: 1040px; padding: 12px 20px; background: #fafafb; border-bottom: 1px solid #ebebef; font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.03em;">
@@ -662,6 +742,9 @@ const App = {
       const toggle = v.status === 'active'
         ? `<button onclick="App.toggleVendor('${v.id}')" class="hv-red" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #f0d3d3; background: #fff; color: #a01f1f; font-size: 13px; font-weight: 500; cursor: pointer;">Suspend</button>`
         : `<button onclick="App.toggleVendor('${v.id}')" class="hv-green" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cfe8d8; background: #fff; color: #1b6b3a; font-size: 13px; font-weight: 500; cursor: pointer;">Reactivate</button>`;
+      const actions = this.canEdit()
+        ? `<button onclick="App.openEditVendor('${v.id}')" class="hv-grey" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #e4e4ea; background: #fff; color: #52525b; font-size: 13px; font-weight: 500; cursor: pointer;">Edit</button>${toggle}`
+        : `<span style="font-size: 12.5px; color: #c4c4ce;">—</span>`;
       return `
       <div style="display: grid; grid-template-columns: 1.4fr 1.4fr 130px 180px; gap: 12px; min-width: 780px; padding: 13px 20px; border-bottom: 1px solid #f4f4f6; align-items: center; font-size: 14px;">
         <div style="display: flex; align-items: center; gap: 11px;">
@@ -670,19 +753,16 @@ const App = {
         </div>
         <div style="color: #6b6b76;">${esc(v.email)}</div>
         <div>${this.badgeHtml(v.status)}</div>
-        <div style="display: flex; gap: 8px; justify-content: flex-end;">
-          <button onclick="App.openEditVendor('${v.id}')" class="hv-grey" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #e4e4ea; background: #fff; color: #52525b; font-size: 13px; font-weight: 500; cursor: pointer;">Edit</button>
-          ${toggle}
-        </div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">${actions}</div>
       </div>`;
     }).join('');
 
     return `<div style="max-width: 1000px;">
-      <div style="display: flex; justify-content: flex-end; margin-bottom: 18px;">
+      ${this.canEdit() ? `<div style="display: flex; justify-content: flex-end; margin-bottom: 18px;">
         <button onclick="App.openAddVendor()" class="hv-primary" style="display: flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: 9px; border: none; background: #6c2a57; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;">
           <span style="font-size: 17px; line-height: 1;">+</span> Add Vendor
         </button>
-      </div>
+      </div>` : ''}
       <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; overflow-x: auto;">
         <div style="display: grid; grid-template-columns: 1.4fr 1.4fr 130px 180px; gap: 12px; min-width: 780px; padding: 12px 20px; background: #fafafb; border-bottom: 1px solid #ebebef; font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.03em;">
           <div>Vendor</div><div>Email</div><div>Status</div><div style="text-align: right;">Actions</div>
@@ -728,6 +808,48 @@ const App = {
     </div>`;
   },
 
+  // ── admin: team access (master only) ──────────────────────────────────
+  renderAccess() {
+    const team = this.data.team || [];
+    const roleBadge = (role) => {
+      const m = { master: { bg: '#efe4eb', c: '#6c2a57', label: 'Master' }, editor: { bg: '#dcf3e4', c: '#1b6b3a', label: 'Editor' }, viewer: { bg: '#fbeed1', c: '#8a5a00', label: 'View-only' } }[role] || { bg: '#f2f2f4', c: '#6b6b76', label: role };
+      return `<span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:${m.bg};color:${m.c};">${m.label}</span>`;
+    };
+    const rows = team.map((a) => {
+      const initials = (a.name || a.email).split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+      let action = '';
+      if (a.role === 'master') action = `<span style="font-size: 12.5px; color: #a2a2ac;">Master admin</span>`;
+      else if (a.email === this.user.email) action = `<span style="font-size: 12.5px; color: #a2a2ac;">You</span>`;
+      else if (a.role === 'editor') action = `<button onclick="App.setTeamRole('${esc(a.email)}','viewer')" class="hv-red" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #f0d3d3; background: #fff; color: #a01f1f; font-size: 13px; font-weight: 500; cursor: pointer;">Revoke edit</button>`;
+      else action = `<button onclick="App.setTeamRole('${esc(a.email)}','editor')" class="hv-green" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cfe8d8; background: #fff; color: #1b6b3a; font-size: 13px; font-weight: 500; cursor: pointer;">Grant edit</button>`;
+      return `
+      <div style="display: grid; grid-template-columns: 1.5fr 1.6fr 130px 140px; gap: 12px; min-width: 760px; padding: 13px 20px; border-bottom: 1px solid #f4f4f6; align-items: center; font-size: 14px;">
+        <div style="display: flex; align-items: center; gap: 11px;">
+          <div style="width: 32px; height: 32px; border-radius: 50%; background: #efe4eb; color: #6c2a57; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; flex-shrink: 0;">${esc(initials)}</div>
+          <span style="font-weight: 500;">${esc(a.name || '—')}</span>
+        </div>
+        <div style="color: #6b6b76;">${esc(a.email)}</div>
+        <div>${roleBadge(a.role)}</div>
+        <div style="display: flex; justify-content: flex-end;">${action}</div>
+      </div>`;
+    }).join('');
+
+    return `<div style="max-width: 1000px;">
+      <div style="font-size: 13.5px; color: #6b6b76; margin-bottom: 16px;">Grant edit access to Mirraw staff. Editors can approve reorders, record payments and manage vendors; view-only admins can see everything but change nothing.</div>
+      <div style="background: #fff; border: 1px solid #ebebef; border-radius: 14px; overflow-x: auto;">
+        <div style="display: grid; grid-template-columns: 1.5fr 1.6fr 130px 140px; gap: 12px; min-width: 760px; padding: 12px 20px; background: #fafafb; border-bottom: 1px solid #ebebef; font-size: 12px; font-weight: 600; color: #8a8a94; text-transform: uppercase; letter-spacing: 0.03em;">
+          <div>Name</div><div>Email</div><div>Access</div><div style="text-align: right;">Manage</div>
+        </div>
+        ${team.length ? rows : `<div style="padding: 50px 20px; text-align: center; font-size: 13px; color: #a2a2ac;">No admin accounts yet.</div>`}
+      </div>
+    </div>`;
+  },
+  async setTeamRole(email, role) {
+    await this.api(`/api/admin/team/${encodeURIComponent(email)}/role`, { json: { role } });
+    await this.refreshData();
+    this.showToast(role === 'editor' ? 'Edit access granted' : 'Set to view-only');
+  },
+
   // ── modals ────────────────────────────────────────────────────────────
   renderModals() {
     let html = '';
@@ -771,7 +893,7 @@ const App = {
         </div>
         <div style="padding: 16px 24px; border-top: 1px solid #f0f0f3; display: flex; justify-content: flex-end; gap: 10px;">
           <button onclick="App.set({acceptId:null})" style="padding: 9px 16px; border-radius: 9px; border: 1px solid #e4e4ea; background: #fff; color: #52525b; font-size: 14px; font-weight: 500; cursor: pointer;">Cancel</button>
-          <button onclick="App.submitAccept()" class="hv-darkgreen" style="padding: 9px 18px; border-radius: 9px; border: none; background: #1b6b3a; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;">Add to Updates</button>
+          <button onclick="App.submitAccept()" class="hv-darkgreen" style="padding: 9px 18px; border-radius: 9px; border: none; background: #1b6b3a; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;">Submit</button>
         </div>
       </div>
     </div>`;
@@ -807,7 +929,7 @@ const App = {
     this.state.acceptId = null;
     this.state.reorderSubtab = 'updates';
     await this.refreshData();
-    this.showToast(partial ? 'Accepted (partial) — moved to Updates' : 'Accepted — moved to Updates');
+    this.showToast(partial ? 'Submitted (partial) — sent to Mirraw' : 'Submitted — sent to Mirraw');
   },
 
   // reject demand
@@ -845,7 +967,7 @@ const App = {
         </div>
         <div style="padding: 16px 24px; border-top: 1px solid #f0f0f3; display: flex; justify-content: flex-end; gap: 10px;">
           <button onclick="App.set({rejectId:null})" style="padding: 9px 16px; border-radius: 9px; border: 1px solid #e4e4ea; background: #fff; color: #52525b; font-size: 14px; font-weight: 500; cursor: pointer;">Cancel</button>
-          <button onclick="App.submitReject()" class="hv-darkred" style="padding: 9px 18px; border-radius: 9px; border: none; background: #a01f1f; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;">Confirm Reject</button>
+          <button onclick="App.submitReject()" class="hv-darkred" style="padding: 9px 18px; border-radius: 9px; border: none; background: #a01f1f; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;">Submit</button>
         </div>
       </div>
     </div>`;
@@ -861,18 +983,12 @@ const App = {
     this.state.rejectId = null;
     this.state.reorderSubtab = 'updates';
     await this.refreshData();
-    this.showToast('Rejected — moved to Updates');
+    this.showToast('Rejected — sent to Mirraw');
   },
 
   editDemand(id) {
     const d = this.data.demands.find((x) => x.id === id);
     if (d.status === 'rejected') this.openReject(id); else this.openAccept(id);
-  },
-  async submitDemandRow(id) {
-    const d = this.data.demands.find((x) => x.id === id);
-    await this.api(`/api/vendor/demands/${id}/submit`);
-    await this.refreshData();
-    this.showToast('Response submitted — row locked');
   },
 
   // vendor invoices
@@ -921,13 +1037,13 @@ const App = {
           </div>
           <div style="margin-top: 26px;">
             <div style="font-size: 12.5px; color: #6b6b76; margin-bottom: 8px; font-weight: 600;">Admin notes to vendor</div>
-            <textarea id="detail-notes" placeholder="Add a note explaining your decision..." style="width: 100%; padding: 11px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none; resize: vertical; min-height: 90px;">${esc(this._detailNotesPrefill)}</textarea>
+            <textarea id="detail-notes" ${this.canEdit() ? '' : 'readonly'} placeholder="Add a note explaining your decision..." style="width: 100%; padding: 11px 13px; border-radius: 9px; border: 1px solid #dcdce2; font-size: 14px; outline: none; resize: vertical; min-height: 90px; background: ${this.canEdit() ? '#fff' : '#faf9fa'};">${esc(this._detailNotesPrefill)}</textarea>
           </div>
         </div>
-        <div style="padding: 18px 26px; border-top: 1px solid #f0f0f3; display: flex; gap: 10px;">
+        ${this.canEdit() ? `<div style="padding: 18px 26px; border-top: 1px solid #f0f0f3; display: flex; gap: 10px;">
           <button onclick="App.decideReorder('rejected')" class="hv-red" style="flex: 1; padding: 11px; border-radius: 9px; border: 1px solid #f0d3d3; background: #fff; color: #a01f1f; font-size: 14px; font-weight: 600; cursor: pointer;">Reject</button>
           <button onclick="App.decideReorder('approved')" class="hv-darkgreen" style="flex: 1; padding: 11px; border-radius: 9px; border: none; background: #1b6b3a; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;">Approve</button>
-        </div>
+        </div>` : `<div style="padding: 16px 26px; border-top: 1px solid #f0f0f3; font-size: 12.5px; color: #a2a2ac; text-align: center;">View-only access — you can't approve or reject.</div>`}
       </div>
     </div>`;
   },

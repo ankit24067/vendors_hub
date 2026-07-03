@@ -7,6 +7,7 @@ from flask import Blueprint, jsonify, request, session
 from werkzeug.utils import secure_filename
 
 from config import Config
+from app import tokens
 from app.store import get_store
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -18,15 +19,51 @@ REJECT_REASONS = [
 ]
 
 
+def _current_user():
+    """Authenticated user from the access JWT cookie (stateless)."""
+    return tokens.read_access(request.cookies.get("at"))
+
+
+def _csrf_ok():
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return True
+    sent = request.headers.get("X-CSRF-Token")
+    return bool(sent) and sent == session.get("csrf")
+
+
 def require(role):
     def deco(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
-            user = session.get("user")
+            user = _current_user()
             if not user:
-                return jsonify({"error": "Not signed in"}), 401
+                return jsonify({"error": "Not signed in", "code": "expired"}), 401
+            if not _csrf_ok():
+                return jsonify({"error": "Invalid or missing CSRF token"}), 403
             if role and user["role"] != role:
                 return jsonify({"error": "Forbidden"}), 403
+            return fn(user, *args, **kwargs)
+        return wrapper
+    return deco
+
+
+def require_admin(editor=False, master=False):
+    """Admin gate. editor=True blocks view-only admins; master=True is the
+    grant-access owner only."""
+    def deco(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            user = _current_user()
+            if not user:
+                return jsonify({"error": "Not signed in", "code": "expired"}), 401
+            if not _csrf_ok():
+                return jsonify({"error": "Invalid or missing CSRF token"}), 403
+            if user["role"] != "admin":
+                return jsonify({"error": "Forbidden"}), 403
+            if master and not user.get("isMaster"):
+                return jsonify({"error": "Only the master admin can manage access"}), 403
+            if editor and not user.get("canEdit"):
+                return jsonify({"error": "You have view-only access. Ask the master admin for edit rights."}), 403
             return fn(user, *args, **kwargs)
         return wrapper
     return deco
@@ -58,7 +95,27 @@ def bootstrap(user):
         "reorders": store.get_reorders(),
         "payments": store.get_payments(),
         "audit": store.get_audit(),
+        "team": store.get_admins() if user.get("isMaster") else [],
     })
+
+
+# ── admin: access management (master only) ───────────────────────────────
+@api_bp.route("/admin/team/<email>/role", methods=["POST"])
+@require_admin(master=True)
+def set_team_role(user, email):
+    body = request.get_json(force=True)
+    role = body.get("role")
+    if role not in ("editor", "viewer"):
+        return jsonify({"error": "Role must be editor or viewer"}), 400
+    if email.strip().lower() == user["email"]:
+        return jsonify({"error": "You can't change your own access"}), 400
+    store = get_store()
+    updated = store.set_admin_role(email, role, user["email"])
+    if not updated:
+        return jsonify({"error": "Admin not found (or is the master account)"}), 404
+    store.push_audit(_admin_actor(user),
+                     "granted edit access to" if role == "editor" else "set to view-only", email)
+    return jsonify({"ok": True})
 
 
 # ── vendor: demands ──────────────────────────────────────────────────────
@@ -184,7 +241,7 @@ def update_profile(user):
 
 # ── admin: reorders ──────────────────────────────────────────────────────
 @api_bp.route("/admin/reorders/<rid>/decide", methods=["POST"])
-@require("admin")
+@require_admin(editor=True)
 def decide_reorder(user, rid):
     body = request.get_json(force=True)
     decision = body.get("decision")
@@ -201,7 +258,7 @@ def decide_reorder(user, rid):
 
 # ── admin: payments ──────────────────────────────────────────────────────
 @api_bp.route("/admin/payments", methods=["POST"])
-@require("admin")
+@require_admin(editor=True)
 def record_payment(user):
     body = request.get_json(force=True)
     vendor = body.get("vendor")
@@ -221,7 +278,7 @@ def record_payment(user):
 
 
 @api_bp.route("/admin/payments/<pid>/resolve", methods=["POST"])
-@require("admin")
+@require_admin(editor=True)
 def resolve_payment(user, pid):
     body = request.get_json(force=True)
     store = get_store()
@@ -237,7 +294,7 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 @api_bp.route("/admin/vendors", methods=["POST"])
-@require("admin")
+@require_admin(editor=True)
 def add_vendor(user):
     body = request.get_json(force=True)
     name = (body.get("name") or "").strip()
@@ -255,7 +312,7 @@ def add_vendor(user):
 
 
 @api_bp.route("/admin/vendors/<vid>", methods=["PUT"])
-@require("admin")
+@require_admin(editor=True)
 def edit_vendor(user, vid):
     body = request.get_json(force=True)
     name = (body.get("name") or "").strip()
@@ -271,7 +328,7 @@ def edit_vendor(user, vid):
 
 
 @api_bp.route("/admin/vendors/<vid>/toggle", methods=["POST"])
-@require("admin")
+@require_admin(editor=True)
 def toggle_vendor(user, vid):
     store = get_store()
     v = store.get_vendor(vid)
