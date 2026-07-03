@@ -82,17 +82,17 @@ def bootstrap(user):
         vid = user["vendorId"]
         return jsonify({
             "user": user,
-            "demands": store.get_demands(vid),
-            "reorders": store.get_reorders(vid),
+            "demands": store.get_demands(user.get("vendorCode")),
             "payments": store.get_payments(vid),
-            "invoices": store.get_invoices(vid),
             "audit": store.get_audit(),
             "vendor": store.get_vendor(vid),
+            # removed features — empty so the current frontend doesn't break
+            "reorders": [], "invoices": [],
         })
     return jsonify({
         "user": user,
         "vendors": store.get_vendors(),
-        "reorders": store.get_reorders(),
+        "demands": store.get_demands(),   # all vendors' demands + current outcome
         "payments": store.get_payments(),
         "audit": store.get_audit(),
         "team": store.get_admins() if user.get("isMaster") else [],
@@ -156,20 +156,6 @@ def respond_demand(user, did):
     store.push_audit(user["vendorName"],
                      "partially accepted reorder" if partial else "accepted reorder", d["sku"])
     return jsonify({"ok": True, "partial": partial})
-
-
-@api_bp.route("/vendor/demands/<did>/submit", methods=["POST"])
-@require("vendor")
-def submit_demand(user, did):
-    store = get_store()
-    d = store.get_demand(did)
-    if not d:
-        return jsonify({"error": "Demand not found"}), 404
-    if d["status"] == "new":
-        return jsonify({"error": "Respond to the demand first"}), 400
-    store.lock_demand(did)
-    store.push_audit(user["vendorName"], "submitted reorder response", d["sku"])
-    return jsonify({"ok": True})
 
 
 # ── vendor: reorder requests ─────────────────────────────────────────────

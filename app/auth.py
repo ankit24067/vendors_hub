@@ -38,6 +38,7 @@ def _vendor_claims(vendor):
         "role": "vendor", "name": vendor["name"], "email": vendor["email"],
         "initials": _initials(vendor["name"]),
         "vendorId": vendor["id"], "vendorName": vendor["name"],
+        "vendorCode": vendor.get("vendor_id", ""),  # Mirraw code → matches reorder_sheet
     }
 
 
@@ -82,14 +83,17 @@ def vendor_signup():
     name = (body.get("name") or "").strip()
     email = (body.get("email") or "").strip().lower()
     password = body.get("password") or ""
+    vendor_id = (body.get("vendorId") or "").strip()
     if not name or not email or not password:
         return jsonify({"error": "Name, email and password are all required"}), 400
+    if not vendor_id:
+        return jsonify({"error": "Enter the Vendor ID that Mirraw gave you"}), 400
     if "@" not in email or "." not in email.split("@")[-1]:
         return jsonify({"error": "Enter a valid email address"}), 400
     if len(password) < 6:
         return jsonify({"error": "Password must be at least 6 characters"}), 400
 
-    vendor, err = get_store().register_vendor(name, email, password)
+    vendor, err = get_store().register_vendor(name, email, password, vendor_id)
     if err:
         return jsonify({"error": err}), 400
     return _issue(_vendor_claims(vendor))

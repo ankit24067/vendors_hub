@@ -12,6 +12,7 @@ Tabs:
   ReorderRequests, Payments, PurchaseOrders, AuditLog — created if missing
 """
 
+import hashlib
 import pickle
 import time
 from datetime import datetime
@@ -28,29 +29,28 @@ CACHE_TTL = 30  # seconds
 DEMAND_SHEET = Config.GOOGLE_DEMAND_TAB
 VENDOR_DB = "vendor_db"
 ADMIN_DB = "admin_db"
-CONFIRMED = "confirmed_reorder"
 OUTCOME_TABS = {
     "accepted": "reOrder_fully_accepted",
     "partial": "reOrder_partially_accepted",
     "rejected": "reOrder_rejected",
 }
 LOCKED_TABS = (VENDOR_DB, ADMIN_DB)
-RESPONSE_HEADERS = ["response_status", "fulfill_qty", "remark", "reject_reason", "responded_at", "locked"]
 
-# image is the FIRST column so the =IMAGE() thumbnail leads each ledger row
-LEDGER_HEADERS = ["image", "demand_id", "vendor_name", "sku", "pid", "product_type",
-                  "required_qty", "fulfill_qty", "outcome", "remark", "reason", "submitted_at"]
+# image is the FIRST column so the =IMAGE() thumbnail leads each ledger row.
+# demand_key is a stable hash of (vendor_id, sku, po) used to join back to the
+# live reorder_sheet row and to de-dupe on edit.
+LEDGER_HEADERS = ["image", "demand_key", "vendor_id", "vendor_name", "sku", "pid",
+                  "product_type", "required_qty", "fulfill_qty", "outcome",
+                  "remark", "reason", "submitted_at"]
 
 TAB_HEADERS = {
-    VENDOR_DB: ["id", "name", "email", "status", "password_hash", "contact", "phone", "address", "gstin", "created_at"],
+    VENDOR_DB: ["id", "vendor_id", "name", "email", "status", "password_hash",
+                "contact", "phone", "address", "gstin", "created_at"],
     ADMIN_DB: ["email", "name", "password_hash", "role", "granted_by", "created_at"],
-    CONFIRMED: LEDGER_HEADERS,
     OUTCOME_TABS["accepted"]: LEDGER_HEADERS,
     OUTCOME_TABS["partial"]: LEDGER_HEADERS,
     OUTCOME_TABS["rejected"]: LEDGER_HEADERS,
-    "ReorderRequests": ["id", "vendor", "sku", "product", "qty", "status", "date", "notes"],
     "Payments": ["id", "ref", "vendor", "amount", "date", "utr", "status", "resolution_note"],
-    "PurchaseOrders": ["id", "vendor", "po", "qty", "amount", "fileName", "status", "date"],
     "AuditLog": ["actor", "action", "target", "ts"],
 }
 
@@ -65,6 +65,13 @@ def _today():
 
 def _new_id(prefix):
     return prefix + str(int(time.time() * 1000))
+
+
+def demand_key(vendor_id, sku, po):
+    """Stable, URL-safe id for a reorder_sheet line — survives row moves and
+    joins the outcome tabs back to the live demand."""
+    raw = f"{(vendor_id or '').strip()}|{(sku or '').strip()}|{(po or '').strip()}"
+    return hashlib.md5(raw.encode()).hexdigest()[:12]
 
 
 class SheetsStore:
@@ -82,30 +89,29 @@ class SheetsStore:
     def _ensure_tabs(self):
         existing = {ws.title for ws in self.sheet.worksheets()}
         for tab, headers in TAB_HEADERS.items():
-            if tab in existing:
+            if tab not in existing:
+                try:
+                    ws = self.sheet.add_worksheet(title=tab, rows=200, cols=len(headers))
+                    ws.update(values=[headers], range_name="A1")
+                except gspread.exceptions.APIError as e:
+                    if "already exists" not in str(e):  # idempotent under races
+                        raise
                 continue
-            try:
-                ws = self.sheet.add_worksheet(title=tab, rows=200, cols=len(headers))
-                ws.update("A1", [headers])
-            except gspread.exceptions.APIError as e:
-                # Idempotent: another worker/request may have just created it.
-                if "already exists" not in str(e):
-                    raise
-        # make sure response columns exist on the demand sheet
-        try:
-            ws = self.sheet.worksheet(DEMAND_SHEET)
-        except gspread.WorksheetNotFound:
+            # Existing tab: repair a drifted header row so writes stay aligned.
+            ws = self.sheet.worksheet(tab)
+            if [h.strip() for h in ws.row_values(1)] != headers:
+                if ws.col_count < len(headers):
+                    ws.add_cols(len(headers) - ws.col_count)
+                ws.update(values=[headers], range_name="A1")
+                self._bust(tab)
+        # reorder_sheet is read-only for us — never written to. Just verify it exists.
+        if DEMAND_SHEET not in {ws.title for ws in self.sheet.worksheets()}:
             tabs = [w.title for w in self.sheet.worksheets()]
             raise RuntimeError(
                 f"Demand tab '{DEMAND_SHEET}' not found in the spreadsheet. "
                 f"Available tabs: {tabs}. Rename the tab to '{DEMAND_SHEET}' or set "
                 f"GOOGLE_DEMAND_TAB in .env to the correct tab name."
             )
-        headers = [h.strip() for h in ws.row_values(1)]
-        missing = [h for h in RESPONSE_HEADERS if h not in headers]
-        if missing:
-            start_col = len(headers) + 1
-            ws.update(gspread.utils.rowcol_to_a1(1, start_col), [missing])
         self._seed_master_admin()
         for tab in LOCKED_TABS:
             self._lock_tab(tab)
@@ -138,11 +144,11 @@ class SheetsStore:
         except Exception as e:
             print(f"[SheetsStore] could not lock {tab}: {e}")
 
-    def _purge_demand(self, demand_id):
-        """Remove any prior ledger rows for this demand so an edit re-routes
+    def _purge_key(self, key):
+        """Remove any prior outcome rows for this demand so an edit re-routes
         cleanly instead of duplicating (delete bottom-up to keep indices valid)."""
-        for tab in (CONFIRMED, *OUTCOME_TABS.values()):
-            rows = [r["_row"] for r in self._rows(tab) if r.get("demand_id") == demand_id]
+        for tab in OUTCOME_TABS.values():
+            rows = [r["_row"] for r in self._rows(tab) if r.get("demand_key") == key]
             if not rows:
                 continue
             ws = self.sheet.worksheet(tab)
@@ -150,21 +156,36 @@ class SheetsStore:
                 ws.delete_rows(row_num)
             self._bust(tab)
 
+    @staticmethod
+    def _parse_values(values):
+        if not values:
+            return []
+        headers = [h.strip() for h in values[0]]
+        rows = []
+        for idx, raw in enumerate(values[1:], start=2):
+            row = {headers[i]: (raw[i] if i < len(raw) else "") for i in range(len(headers))}
+            row["_row"] = idx
+            rows.append(row)
+        return rows
+
+    def prime(self, tabs):
+        """Fetch several tabs in ONE Sheets API call and cache them. This is the
+        main speed win — turns N round-trips into 1 for a page load."""
+        need = [t for t in tabs
+                if not (self._cache.get(t) and time.time() - self._cache[t][0] < CACHE_TTL)]
+        if not need:
+            return
+        batches = self.sheet.values_batch_get(need)  # single request
+        for tab, vr in zip(need, batches.get("valueRanges", [])):
+            self._cache[tab] = (time.time(), self._parse_values(vr.get("values", [])))
+
     def _rows(self, tab):
         """All rows of a tab as list of dicts keyed by header, cached briefly."""
         hit = self._cache.get(tab)
         if hit and time.time() - hit[0] < CACHE_TTL:
             return hit[1]
         ws = self.sheet.worksheet(tab)
-        values = ws.get_all_values()
-        if not values:
-            return []
-        headers = [h.strip() for h in values[0]]
-        rows = []
-        for idx, raw in enumerate(values[1:], start=2):  # sheet row number
-            row = {headers[i]: (raw[i] if i < len(raw) else "") for i in range(len(headers))}
-            row["_row"] = idx
-            rows.append(row)
+        rows = self._parse_values(ws.get_all_values())
         self._cache[tab] = (time.time(), rows)
         return rows
 
@@ -193,21 +214,26 @@ class SheetsStore:
         self._bust(tab)
 
     # ── auth ─────────────────────────────────────────────────────────────
-    def register_vendor(self, name, email, password):
+    def register_vendor(self, name, email, password, vendor_id=""):
         email = email.strip().lower()
+        vendor_id = (vendor_id or "").strip()
         for r in self._rows(VENDOR_DB):
             if (r.get("email") or "").strip().lower() == email:
                 if (r.get("password_hash") or "").strip():
                     return None, "An account with this email already exists. Try signing in."
                 # Pre-created by an admin — claim it.
-                self._update_row(VENDOR_DB, r["_row"],
-                                 {"password_hash": generate_password_hash(password), "name": name or r.get("name")})
+                self._update_row(VENDOR_DB, r["_row"], {
+                    "password_hash": generate_password_hash(password),
+                    "name": name or r.get("name"),
+                    "vendor_id": vendor_id or r.get("vendor_id", ""),
+                })
                 return self.get_vendor(r["id"]), None
-        v = {"id": _new_id("v"), "name": name, "email": email, "status": "active",
-             "password_hash": generate_password_hash(password), "created_at": _now_ts(),
-             "contact": "", "phone": "", "address": "", "gstin": ""}
+        v = {"id": _new_id("v"), "vendor_id": vendor_id, "name": name, "email": email,
+             "status": "active", "password_hash": generate_password_hash(password),
+             "created_at": _now_ts(), "contact": "", "phone": "", "address": "", "gstin": ""}
         self._append(VENDOR_DB, v)
-        return {k: v[k] for k in ("id", "name", "email", "status", "contact", "phone", "address", "gstin")}, None
+        return {k: v[k] for k in ("id", "vendor_id", "name", "email", "status",
+                                  "contact", "phone", "address", "gstin")}, None
 
     def authenticate_vendor(self, email, password):
         email = email.strip().lower()
@@ -215,7 +241,8 @@ class SheetsStore:
             if (r.get("email") or "").strip().lower() == email:
                 h = (r.get("password_hash") or "").strip()
                 if h and check_password_hash(h, password):
-                    return {"id": r["id"], "name": r.get("name", ""), "email": r.get("email", ""),
+                    return {"id": r["id"], "vendor_id": r.get("vendor_id", ""),
+                            "name": r.get("name", ""), "email": r.get("email", ""),
                             "status": r.get("status", "active") or "active"}
                 return None
         return None
@@ -272,7 +299,8 @@ class SheetsStore:
         for r in self._rows(VENDOR_DB):
             if not r.get("id"):
                 continue
-            out.append({"id": r["id"], "name": r.get("name", ""), "email": r.get("email", ""),
+            out.append({"id": r["id"], "vendor_id": r.get("vendor_id", ""),
+                        "name": r.get("name", ""), "email": r.get("email", ""),
                         "status": r.get("status", "active") or "active",
                         "contact": r.get("contact", ""), "phone": r.get("phone", ""),
                         "address": r.get("address", ""), "gstin": r.get("gstin", "")})
@@ -307,19 +335,34 @@ class SheetsStore:
                 return v
         return None
 
-    # ── demands (reorder_sheet) ──────────────────────────────────────────
-    def get_demands(self, vendor_id=None):
-        vendor_name = None
-        if vendor_id is not None:
-            v = self.get_vendor(vendor_id)
-            vendor_name = (v["name"].strip().lower() if v else "__none__")
+    # ── demands (reorder_sheet, joined to the outcome tabs) ──────────────
+    def _response_map(self):
+        """demand_key -> current response, read from the 3 outcome tabs."""
+        m = {}
+        for status, tab in OUTCOME_TABS.items():
+            for r in self._rows(tab):
+                k = (r.get("demand_key") or "").strip()
+                if not k:
+                    continue
+                fq = r.get("fulfill_qty", "")
+                m[k] = {
+                    "status": r.get("outcome", status) or status,
+                    "fulfillQty": int(float(fq)) if str(fq).strip() else None,
+                    "remark": r.get("remark", ""), "reason": r.get("reason", ""),
+                }
+        return m
+
+    def get_demands(self, vendor_code=None):
+        # one batched read of the demand sheet + 3 outcome tabs
+        self.prime([DEMAND_SHEET, *OUTCOME_TABS.values()])
+        responses = self._response_map()
         out = []
         for r in self._rows(DEMAND_SHEET):
             sku = (r.get("sku_code") or "").strip()
-            vname = (r.get("vendor_name") or "").strip()
-            if not sku or not vname:
+            vid = (r.get("vendor_id") or "").strip()
+            if not sku or not vid:
                 continue  # blank spacer rows / stray junk
-            if vendor_name is not None and vname.lower() != vendor_name:
+            if vendor_code is not None and vid != str(vendor_code).strip():
                 continue
             ptype = (r.get("product_type") or "").strip()
             if ptype == sku:
@@ -332,24 +375,25 @@ class SheetsStore:
                 cost = float(r.get("cost_price") or 0)
             except ValueError:
                 cost = 0
-            fq = r.get("fulfill_qty", "")
+            po = (r.get("po") or "").strip()
+            key = demand_key(vid, sku, po)
+            resp = responses.get(key)
             out.append({
-                "id": "row" + str(r["_row"]),
-                "_row": r["_row"],
-                "vendor_name": vname,
+                "id": key,
+                "vendor_id": vid,
+                "vendor_name": (r.get("vendor_name") or "").strip(),
                 "sku": sku,
                 "pid": (r.get("design_id") or "").strip(),
                 "type": ptype or "—",
                 "cost": cost,
                 "qty": qty,
-                "po": (r.get("po") or "").strip(),
+                "po": po,
                 "order_date": (r.get("order_date") or "").strip(),
                 "image": (r.get("image_link") or "").strip(),
-                "status": (r.get("response_status") or "new").strip() or "new",
-                "fulfillQty": int(float(fq)) if str(fq).strip() else None,
-                "remark": r.get("remark", ""),
-                "reason": r.get("reject_reason", ""),
-                "locked": str(r.get("locked", "")).strip().upper() == "TRUE",
+                "status": resp["status"] if resp else "new",
+                "fulfillQty": resp["fulfillQty"] if resp else None,
+                "remark": resp["remark"] if resp else "",
+                "reason": resp["reason"] if resp else "",
             })
         return out
 
@@ -363,65 +407,28 @@ class SheetsStore:
         d = self.get_demand(did)
         if not d:
             return None
-        self._update_row(DEMAND_SHEET, d["_row"], {
-            "response_status": status,
-            "fulfill_qty": "" if fulfill_qty is None else fulfill_qty,
-            "remark": remark or "",
-            "reject_reason": reason or "",
-            "responded_at": _now_ts(),
-        })
-        # route into confirmed_reorder + the matching outcome tab
-        d = {**d, "status": status, "fulfillQty": fulfill_qty, "remark": remark or "", "reason": reason or ""}
         rec = {
             "image": image_formula(d.get("image")),
-            "demand_id": d["id"], "vendor_name": d.get("vendor_name", ""),
-            "sku": d["sku"], "pid": d.get("pid", ""), "product_type": d.get("type", ""),
+            "demand_key": did, "vendor_id": d.get("vendor_id", ""),
+            "vendor_name": d.get("vendor_name", ""), "sku": d["sku"],
+            "pid": d.get("pid", ""), "product_type": d.get("type", ""),
             "required_qty": d["qty"], "fulfill_qty": "" if fulfill_qty is None else fulfill_qty,
-            "outcome": status, "remark": remark or "", "reason": reason or "", "submitted_at": _now_ts(),
+            "outcome": status, "remark": remark or "", "reason": reason or "",
+            "submitted_at": _now_ts(),
         }
-        self._purge_demand(d["id"])
-        self._append(CONFIRMED, rec)
+        self._purge_key(did)  # remove any earlier response (edit re-routes cleanly)
         if status in OUTCOME_TABS:
             self._append(OUTCOME_TABS[status], rec)
-        return d
+        return {**d, "status": status, "fulfillQty": fulfill_qty, "remark": remark or "", "reason": reason or ""}
 
-    def lock_demand(self, did):
-        d = self.get_demand(did)
-        if not d:
-            return None
-        self._update_row(DEMAND_SHEET, d["_row"], {"locked": "TRUE"})
-        return d
-
-    # ── reorder requests ─────────────────────────────────────────────────
+    # ── removed features (tabs deleted) — safe no-ops ────────────────────
     def get_reorders(self, vendor_id=None):
-        out = []
-        for r in self._rows("ReorderRequests"):
-            if not r.get("id"):
-                continue
-            if vendor_id is not None and r.get("vendor") != vendor_id:
-                continue
-            try:
-                qty = int(float(r.get("qty") or 0))
-            except ValueError:
-                qty = 0
-            out.append({"id": r["id"], "vendor": r.get("vendor", ""), "sku": r.get("sku", ""),
-                        "product": r.get("product", ""), "qty": qty,
-                        "status": r.get("status", "pending") or "pending",
-                        "date": r.get("date", ""), "notes": r.get("notes", "")})
-        out.reverse()  # newest first
-        return out
+        return []
 
     def add_reorder(self, vendor_id, sku, product, qty, notes):
-        r = {"id": _new_id("r"), "vendor": vendor_id, "sku": sku, "product": product,
-             "qty": qty, "status": "pending", "date": _today(), "notes": notes or ""}
-        self._append("ReorderRequests", r)
-        return r
+        return None
 
     def decide_reorder(self, rid, decision, notes):
-        for r in self._rows("ReorderRequests"):
-            if r.get("id") == rid:
-                self._update_row("ReorderRequests", r["_row"], {"status": decision, "notes": notes or ""})
-                return r
         return None
 
     # ── payments ─────────────────────────────────────────────────────────
@@ -458,35 +465,11 @@ class SheetsStore:
                 return r
         return None
 
-    # ── purchase orders / invoices ───────────────────────────────────────
+    # ── purchase orders / invoices (tab removed) — safe no-ops ───────────
     def get_invoices(self, vendor_id=None):
-        out = []
-        for r in self._rows("PurchaseOrders"):
-            if not r.get("id"):
-                continue
-            if vendor_id is not None and r.get("vendor") != vendor_id:
-                continue
-            try:
-                qty = int(float(r.get("qty") or 0))
-            except ValueError:
-                qty = 0
-            try:
-                amount = float(r.get("amount") or 0)
-            except ValueError:
-                amount = 0
-            out.append({"id": r["id"], "vendor": r.get("vendor", ""), "po": r.get("po", ""),
-                        "qty": qty, "amount": amount,
-                        "fileName": r.get("fileName") or None,
-                        "status": r.get("status", "Awaiting Invoice") or "Awaiting Invoice",
-                        "date": r.get("date") or None})
-        return out
+        return []
 
     def attach_invoice(self, iid, file_name):
-        for r in self._rows("PurchaseOrders"):
-            if r.get("id") == iid:
-                self._update_row("PurchaseOrders", r["_row"],
-                                 {"fileName": file_name, "status": "Uploaded", "date": _today()})
-                return r
         return None
 
     # ── audit ────────────────────────────────────────────────────────────

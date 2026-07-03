@@ -36,7 +36,7 @@ def _new_id(prefix):
 class MockStore:
     def __init__(self):
         self.vendors = [
-            {"id": "v1", "name": "Anokhi Textiles", "email": "anokhi@textiles.in", "status": "active",
+            {"id": "v1", "vendor_id": "V-1001", "name": "Anokhi Textiles", "email": "anokhi@textiles.in", "status": "active",
              "contact": "Ananya Kapoor", "phone": "+91 98200 44112",
              "address": "14 Linking Rd, Bandra West, Mumbai 400050", "gstin": "27AAECM1234F1Z5"},
             {"id": "v2", "name": "Rivaayat Studio", "email": "orders@rivaayat.co", "status": "active",
@@ -51,14 +51,14 @@ class MockStore:
              "contact": "", "phone": "", "address": "", "gstin": ""},
         ]
         self.reorders = [
-            {"id": "r1", "vendor": "v1", "sku": "ANK-SR-014", "product": "Silk Saree — Maroon", "qty": 120, "status": "pending", "date": "2026-06-28", "notes": ""},
-            {"id": "r2", "vendor": "v1", "sku": "ANK-KT-220", "product": "Cotton Kurti Set", "qty": 300, "status": "approved", "date": "2026-06-20", "notes": "Approved. Ship by Jul 5."},
-            {"id": "r3", "vendor": "v1", "sku": "ANK-LH-008", "product": "Lehenga — Ivory", "qty": 40, "status": "rejected", "date": "2026-06-12", "notes": "Design discontinued this season."},
+            {"id": "r1", "vendor": "v1", "vendor_id": "V-1001", "sku": "ANK-SR-014", "product": "Silk Saree — Maroon", "qty": 120, "status": "pending", "date": "2026-06-28", "notes": ""},
+            {"id": "r2", "vendor": "v1", "vendor_id": "V-1001", "sku": "ANK-KT-220", "product": "Cotton Kurti Set", "qty": 300, "status": "approved", "date": "2026-06-20", "notes": "Approved. Ship by Jul 5."},
+            {"id": "r3", "vendor": "v1", "vendor_id": "V-1001", "sku": "ANK-LH-008", "product": "Lehenga — Ivory", "qty": 40, "status": "rejected", "date": "2026-06-12", "notes": "Design discontinued this season."},
             {"id": "r4", "vendor": "v2", "sku": "RIV-DP-101", "product": "Dupatta — Blockprint", "qty": 200, "status": "pending", "date": "2026-06-27", "notes": ""},
             {"id": "r5", "vendor": "v3", "sku": "BND-BG-055", "product": "Bandhani Bagru Suit", "qty": 150, "status": "approved", "date": "2026-06-18", "notes": "Approved at revised rate."},
             {"id": "r6", "vendor": "v5", "sku": "MEH-SH-030", "product": "Handloom Shawl", "qty": 90, "status": "pending", "date": "2026-06-29", "notes": ""},
             {"id": "r7", "vendor": "v6", "sku": "ZAR-BL-077", "product": "Zari Blouse Piece", "qty": 500, "status": "pending", "date": "2026-06-30", "notes": ""},
-            {"id": "r8", "vendor": "v1", "sku": "ANK-SR-019", "product": "Silk Saree — Teal", "qty": 80, "status": "approved", "date": "2026-06-05", "notes": "Approved."},
+            {"id": "r8", "vendor": "v1", "vendor_id": "V-1001", "sku": "ANK-SR-019", "product": "Silk Saree — Teal", "qty": 80, "status": "approved", "date": "2026-06-05", "notes": "Approved."},
         ]
         self.payments = [
             {"id": "p1", "ref": "INV-2026-0412", "vendor": "v1", "amount": 240000, "date": "2026-06-25", "utr": "UTR8891234", "status": "Pending Confirmation"},
@@ -81,12 +81,12 @@ class MockStore:
         ]
         # Incoming reorder demands (rows of reorder_sheet in real mode)
         self.demands = [
-            {"id": "d1", "vendor": "v1", "sku": "ANK-SR-014", "pid": "PID-88213", "type": "Silk Saree", "cost": 1850, "qty": 120, "status": "new", "fulfillQty": None, "remark": "", "reason": "", "locked": False, "image": ""},
-            {"id": "d2", "vendor": "v1", "sku": "ANK-KT-220", "pid": "PID-90455", "type": "Cotton Kurti Set", "cost": 640, "qty": 300, "status": "new", "fulfillQty": None, "remark": "", "reason": "", "locked": False, "image": ""},
-            {"id": "d3", "vendor": "v1", "sku": "ANK-DP-101", "pid": "PID-77120", "type": "Blockprint Dupatta", "cost": 410, "qty": 200, "status": "new", "fulfillQty": None, "remark": "", "reason": "", "locked": False, "image": ""},
-            {"id": "d4", "vendor": "v1", "sku": "ANK-LH-330", "pid": "PID-65540", "type": "Bridal Lehenga", "cost": 5200, "qty": 25, "status": "new", "fulfillQty": None, "remark": "", "reason": "", "locked": False, "image": ""},
-            {"id": "d5", "vendor": "v1", "sku": "ANK-BL-077", "pid": "PID-81002", "type": "Zari Blouse Piece", "cost": 520, "qty": 500, "status": "rejected", "fulfillQty": None, "remark": "", "reason": "Cost price too low", "locked": False, "image": ""},
-            {"id": "d6", "vendor": "v1", "sku": "ANK-SH-030", "pid": "PID-70088", "type": "Handloom Shawl", "cost": 980, "qty": 90, "status": "partial", "fulfillQty": 60, "remark": "Only 60 in stock; balance expected by mid-July.", "reason": "", "locked": False, "image": ""},
+            {"id": "d1", "vendor": "v1", "vendor_id": "V-1001", "sku": "ANK-SR-014", "pid": "PID-88213", "type": "Silk Saree", "cost": 1850, "qty": 120, "status": "new", "fulfillQty": None, "remark": "", "reason": "", "locked": False, "image": ""},
+            {"id": "d2", "vendor": "v1", "vendor_id": "V-1001", "sku": "ANK-KT-220", "pid": "PID-90455", "type": "Cotton Kurti Set", "cost": 640, "qty": 300, "status": "new", "fulfillQty": None, "remark": "", "reason": "", "locked": False, "image": ""},
+            {"id": "d3", "vendor": "v1", "vendor_id": "V-1001", "sku": "ANK-DP-101", "pid": "PID-77120", "type": "Blockprint Dupatta", "cost": 410, "qty": 200, "status": "new", "fulfillQty": None, "remark": "", "reason": "", "locked": False, "image": ""},
+            {"id": "d4", "vendor": "v1", "vendor_id": "V-1001", "sku": "ANK-LH-330", "pid": "PID-65540", "type": "Bridal Lehenga", "cost": 5200, "qty": 25, "status": "new", "fulfillQty": None, "remark": "", "reason": "", "locked": False, "image": ""},
+            {"id": "d5", "vendor": "v1", "vendor_id": "V-1001", "sku": "ANK-BL-077", "pid": "PID-81002", "type": "Zari Blouse Piece", "cost": 520, "qty": 500, "status": "rejected", "fulfillQty": None, "remark": "", "reason": "Cost price too low", "locked": False, "image": ""},
+            {"id": "d6", "vendor": "v1", "vendor_id": "V-1001", "sku": "ANK-SH-030", "pid": "PID-70088", "type": "Handloom Shawl", "cost": 980, "qty": 90, "status": "partial", "fulfillQty": 60, "remark": "Only 60 in stock; balance expected by mid-July.", "reason": "", "locked": False, "image": ""},
         ]
         # Purchase orders synced from the sheet in real mode
         self.invoices = [
@@ -115,8 +115,9 @@ class MockStore:
         self.reorder_outcomes = {"accepted": [], "partial": [], "rejected": []}
 
     # ── auth ─────────────────────────────────────────────────────────────
-    def register_vendor(self, name, email, password):
+    def register_vendor(self, name, email, password, vendor_id=""):
         email = email.strip().lower()
+        vendor_id = (vendor_id or "").strip()
         existing = self.find_vendor_by_email(email)
         if existing and email in self.vendor_creds:
             return None, "An account with this email already exists. Try signing in."
@@ -125,8 +126,10 @@ class MockStore:
             self.vendor_creds[email] = generate_password_hash(password)
             if name:
                 existing["name"] = name
+            if vendor_id:
+                existing["vendor_id"] = vendor_id
             return existing, None
-        vendor = self.add_vendor({"name": name, "email": email, "status": "active"})
+        vendor = self.add_vendor({"name": name, "email": email, "status": "active", "vendor_id": vendor_id})
         self.vendor_creds[email] = generate_password_hash(password)
         return vendor, None
 
@@ -204,10 +207,10 @@ class MockStore:
         return v
 
     # ── demands (reorder_sheet rows) ─────────────────────────────────────
-    def get_demands(self, vendor_id=None):
-        if vendor_id is None:
+    def get_demands(self, vendor_code=None):
+        if vendor_code is None:
             return self.demands
-        return [d for d in self.demands if d["vendor"] == vendor_id]
+        return [d for d in self.demands if d.get("vendor_id") == vendor_code]
 
     def get_demand(self, did):
         for d in self.demands:
